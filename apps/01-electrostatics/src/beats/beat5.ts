@@ -5,7 +5,7 @@ import { createPlot2d } from '@lib/render'
 import { CHARGE_START, type Exponent, type SecondCharge, type Sim1Physics } from '../physics'
 import type { Sim1Render } from '../render/index'
 import { GAUSS_COPY, PHI_CHOICES, PREDICTIONS, SPHERES_COPY } from '../content'
-import { formatFlux, sig3, tweenValue, wait, waitClick, type Run } from '../flow'
+import { fmtFixed, formatFlux, sig3, tweenValue, wait, waitClick, type Run } from '../flow'
 
 export type Readout = { show(): void; hide(): void; isHidden(): boolean; caption(text: string | null): void; set(main: string, sub: string): void }
 
@@ -98,7 +98,7 @@ export function createBeat5(o: {
   playTitle.textContent = GAUSS_COPY.play
   const radius = createSlider({ doc, prefix: p, label: 'Radius', min: 0.5, max: 2, step: 0.05, value: 1, format: v => `${v.toFixed(2)} m`, onInput: v => physics.setScale(v) })
   const shape = createSlider({ doc, prefix: p, label: 'Shape', min: 0, max: 2, step: 0.05, value: 0, format: v => (v <= 0.02 ? 'sphere' : v >= 1.98 ? 'blob' : Math.abs(v - 1) < 0.03 ? 'cube' : v < 1 ? 'sphere → cube' : 'cube → blob'), onInput: v => physics.setMorph(v) })
-  const chargeX = createSlider({ doc, prefix: p, label: 'Charge position', min: -1.8, max: 1.8, step: 0.05, value: CHARGE_START.x, format: v => `x = ${v.toFixed(2)} m`, onInput: v => physics.setChargeX(v) })
+  const chargeX = createSlider({ doc, prefix: p, label: 'Charge position', min: -1.8, max: 1.8, step: 0.05, value: CHARGE_START.x, format: v => `x = ${fmtFixed(v, 2)} m`, onInput: v => physics.setChargeX(v) })
   const secondSeg = createSegmented({
     doc,
     prefix: p,
@@ -240,6 +240,8 @@ export function createBeat5(o: {
     if (id !== flowId) return
     callback.hidden = true
     physics.setExponent(2)
+    // The question is about one charge at a random spot in the blob: take the second one back out.
+    physics.setSecond('off')
     render.show('gauss')
     readout.show()
 

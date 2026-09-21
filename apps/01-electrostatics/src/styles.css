@@ -415,7 +415,7 @@
   cursor: pointer;
 }
 .sim01 .sim01-eq-term[aria-pressed='true'] { background: color-mix(in srgb, var(--ps-pos) 22%, transparent); border-bottom-color: var(--ps-pos); }
-.sim01 .sim01-eq-tip { margin: 0; font-family: var(--ps-sans); font-size: var(--ps-text-sm); color: var(--ps-panel-muted); }
+.sim01 .sim01-eq-tip { margin: 0; font-family: var(--ps-serif); font-size: 0.9375rem; line-height: 1.4; color: var(--ps-panel-muted); }
 .sim01 .sim01-approx { font-family: var(--ps-sans); font-size: var(--ps-text-sm); border-top: 1px solid var(--ps-hairline); padding-top: 8px; }
 .sim01 .sim01-approx-summary { cursor: pointer; font-weight: 600; color: var(--ps-panel-muted); }
 .sim01 .sim01-approx-list { margin: 8px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; }
@@ -427,7 +427,10 @@
 
 /* Stage 6: legend for the slice plane, end card. */
 .sim01 .sim01-legend { display: flex; align-items: center; gap: 8px; font-family: var(--ps-sans); font-size: 0.75rem; color: var(--ps-panel-muted); font-variant-numeric: tabular-nums; }
-.sim01 .sim01-legend-bar { flex: 1; height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--ps-neg), var(--ps-surface), var(--ps-pos)); }
+.sim01 .sim01-legend-bar { flex: 1; height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--ps-mag-lo), var(--ps-mag-hi)); }
+.sim01 .sim01-legend-caption { margin: 0; font-family: var(--ps-sans); font-size: 0.75rem; color: var(--ps-panel-muted); }
+.sim01 sub,
+.sim01 sup { font-size: 0.72em; line-height: 0; }
 .sim01 .sim01-plot-hot .sim01-plot-series { stroke: var(--ps-pos); stroke-width: 3; }
 .sim01 .sim01-endcard { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--ps-hairline); }
 .sim01 .sim01-endcard .sim01-list { font-family: var(--ps-serif); font-size: 1rem; line-height: 1.45; }

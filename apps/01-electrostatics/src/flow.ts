@@ -1,6 +1,7 @@
 // Layer 3 helpers: promises over GSAP so chapter flows read top to bottom. Everything is created through
 // run(), which the mount wires to gsap.context().add, so a revert at unmount kills it all.
 import { gsap } from 'gsap'
+import { fmtNum } from './format'
 
 export type Run = <T>(fn: () => T) => T
 
@@ -43,7 +44,10 @@ export function tweenValue(run: Run, from: number, to: number, duration: number,
 export const waitClick = (button: HTMLButtonElement): Promise<void> =>
   new Promise(resolve => button.addEventListener('click', () => resolve(), { once: true }))
 
-export const sig3 = (x: number): string => Number(x.toPrecision(3)).toString()
+export { fmtFixed, fmtNum } from './format'
+
+/** 3 significant figures, student-readable (see format.ts). */
+export const sig3 = (x: number): string => fmtNum(x, 3)
 
 /** Flux to 3 sig figs; anything below 1e-6 N·m²/C is rounding noise from a cancelling sum and reads as 0. */
 export const formatFlux = (phi: number): string => `Φ = ${sig3(Math.abs(phi) < 1e-6 ? 0 : phi)} N·m²/C`

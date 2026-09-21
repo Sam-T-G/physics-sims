@@ -14,6 +14,9 @@
   --ps-shell: #9fb4d8;
   --ps-surface: #c9d6ea;
   --ps-line: #f3d9a4;
+  /* "How strong" ramp for field magnitude: dim slate to bright cream, kept apart from the ± colors. */
+  --ps-mag-lo: #56688c;
+  --ps-mag-hi: #fff0c2;
   --ps-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "Noto Serif", Georgia, serif;
   --ps-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --ps-font: var(--ps-sans);

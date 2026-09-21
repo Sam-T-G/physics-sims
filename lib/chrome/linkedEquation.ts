@@ -3,6 +3,8 @@
  * through onFocus; hover on desktop, tap on phone. A one-line tip shows under the equation for the
  * active term. Term text can be updated live (numbers).
  */
+import { setRichText } from './richText'
+
 export type EqTerm = { id: string; text: string; tip?: string }
 
 export type LinkedEquation = {
@@ -22,15 +24,16 @@ export function createLinkedEquation(o: { doc: Document; prefix: string; label?:
   const tip = doc.createElement('p')
   tip.className = `${p}-eq-tip`
   tip.hidden = true
-  const terms = new Map<string, { b: HTMLButtonElement; tip?: string }>()
+  const terms = new Map<string, { b: HTMLButtonElement; tip?: string; last?: string }>()
   let active: string | null = null
+  let pinned: string | null = null
 
   const setActive = (id: string | null) => {
     active = id
     for (const [k, t] of terms) t.b.setAttribute('aria-pressed', String(k === id))
     const t = id ? terms.get(id) : undefined
     tip.hidden = !t?.tip
-    tip.textContent = t?.tip ?? ''
+    setRichText(tip, t?.tip ?? '')
     o.onFocus(id)
   }
 
@@ -38,21 +41,26 @@ export function createLinkedEquation(o: { doc: Document; prefix: string; label?:
     if (typeof part === 'string') {
       const span = doc.createElement('span')
       span.className = `${p}-eq-op`
-      span.textContent = part
+      setRichText(span, part)
       line.appendChild(span)
       continue
     }
     const b = doc.createElement('button')
     b.type = 'button'
     b.className = `${p}-eq-term`
-    b.textContent = part.text
+    setRichText(b, part.text)
     b.setAttribute('aria-pressed', 'false')
-    b.addEventListener('click', () => setActive(active === part.id ? null : part.id))
+    // Click (or tap) pins a term and a second click unpins it. On a mouse, hover previews a term while
+    // nothing is pinned. Without the pin, a click would toggle off the term the hover had just turned on.
+    b.addEventListener('click', () => {
+      pinned = pinned === part.id ? null : part.id
+      setActive(pinned)
+    })
     b.addEventListener('pointerenter', e => {
-      if (e.pointerType === 'mouse') setActive(part.id)
+      if (e.pointerType === 'mouse' && pinned === null) setActive(part.id)
     })
     b.addEventListener('pointerleave', e => {
-      if (e.pointerType === 'mouse' && active === part.id) setActive(null)
+      if (e.pointerType === 'mouse' && pinned === null && active === part.id) setActive(null)
     })
     terms.set(part.id, { b, tip: part.tip })
     line.appendChild(b)
@@ -62,8 +70,14 @@ export function createLinkedEquation(o: { doc: Document; prefix: string; label?:
     el: root,
     setTerm(id, text) {
       const t = terms.get(id)
-      if (t && t.b.textContent !== text) t.b.textContent = text
+      if (t && t.last !== text) {
+        setRichText(t.b, text)
+        t.last = text
+      }
     },
-    focus: setActive,
+    focus(id) {
+      pinned = id
+      setActive(id)
+    },
   }
 }

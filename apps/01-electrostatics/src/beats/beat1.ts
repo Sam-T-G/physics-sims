@@ -4,6 +4,7 @@ import { CHARGE_COPY } from '../content'
 import type { Sim1Physics } from '../physics'
 import type { Sim1Render } from '../render/index'
 import type { Readout } from './beat5'
+import { E_CHARGE } from '@lib/physics'
 
 export type Beat1 = { panel: HTMLElement; enter(): void; leave(): void; update(): void }
 
@@ -75,15 +76,22 @@ export function createBeat1(o: { doc: Document; prefix: string; physics: Sim1Phy
     update() {
       if (panel.hidden) return
       const total = pair.totalE()
-      const main = `Total charge: ${total > 0 ? '+' : ''}${total} e`
-      const sub = pair.apart < 0.05 ? CHARGE_COPY.totalNothing : pair.same ? CHARGE_COPY.totalSame : CHARGE_COPY.totalPair
+      const e = (n: number) => (n > 0 ? `+${n}e` : n < 0 ? `−${-n}e` : '0')
+      const main = `Total charge: ${e(total)}`
+      const { a, b } = pair.charges()
+      const na = Math.round(a / E_CHARGE)
+      const nb = Math.round(b / E_CHARGE)
+      const sum = `${e(na)} + (${e(nb)}) = ${e(na + nb)}`
+      const sub = pair.apart < 0.05 ? (pair.same ? `${sum}. ${CHARGE_COPY.totalStacked}` : CHARGE_COPY.totalNothing) : `${sum}. ${pair.same ? CHARGE_COPY.totalSame : CHARGE_COPY.totalPair}`
       const key = main + sub
       if (key !== last) {
         readout.set(main, sub)
         last = key
       }
       // The what-do-you-see pause ends when they have pulled the pair apart and read the total.
-      if (!done && !asked && pair.apart > 0.5) void ask(flowId)
+      // The conservation note is about the opposite pair; hide it while the same-sign case is showing.
+      if (asked || done) conserved.hidden = pair.same
+      if (!done && !asked && !pair.same && pair.apart > 0.5) void ask(flowId)
     },
   }
 }

@@ -1,5 +1,6 @@
 import { gsap } from 'gsap'
 import type { BeatContent } from './types'
+import { setRichText } from './richText'
 
 /** One chapter. Scene work happens in the callbacks; the chrome owns the card, the rail and the nav. */
 export type BeatSpec = {
@@ -103,11 +104,11 @@ export function createChapters(opts: ChaptersOptions): Chapters {
 
   const paint = (i: number) => {
     const c = beats[i]!.content
-    prompt.textContent = c.prompt ?? ''
+    setRichText(prompt, c.prompt ?? '')
     prompt.hidden = !c.prompt
     kickerLabel.textContent = c.label
     kickerTitle.textContent = c.title
-    body.textContent = c.body
+    setRichText(body, c.body)
     anchor.textContent = c.anchor
     ticks.forEach((t, k) => {
       t.disabled = k > reachedIndex

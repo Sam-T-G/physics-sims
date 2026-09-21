@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { createArrowField, createFieldLines, type ArrowField, type FieldLines } from '@lib/render'
-import { SLICE_N } from '../../physics'
+import { FIELD_RC, SLICE_N } from '../../physics'
 import type { Scene, SceneCtx } from './types'
 
 export type FieldHighlight = 'F' | 'q0' | 'E' | null
@@ -18,21 +18,24 @@ export function createFieldScene(ctx: SceneCtx): Scene & {
 } {
   const { physics, markers, arrows, colors } = ctx
   const group = new THREE.Group()
-  const m1 = markers.make(1, 0.08)
-  const m2 = markers.make(-1, 0.08)
+  // Drawn at their real size (the capture radius), so the released charge visibly hits the ball it stops on.
+  const m1 = markers.make(1, FIELD_RC)
+  const m2 = markers.make(-1, FIELD_RC)
   const probeGeo = new THREE.SphereGeometry(0.035, 16, 12)
   const probeMat = new THREE.MeshStandardMaterial({ color: colors.fg, roughness: 0.4 })
   const probe = new THREE.Mesh(probeGeo, probeMat)
-  const fArrow = arrows.make(colors.line, 0.014)
-  const eArrow = arrows.make(colors.pos, 0.011)
+  const fArrow = arrows.make(colors.line, 0.014, 'F')
+  const eArrow = arrows.make(colors.fg, 0.011, 'E')
+  // Each charge's piece of E at the probe, colored by the sign of the charge it comes from.
   const cArrows = [arrows.make(colors.pos, 0.009), arrows.make(colors.neg, 0.009)]
   const slice = createArrowField(SLICE_N * SLICE_N, { length: 0.11, radius: 0.007 })
   const lines = createFieldLines(20000, { color: colors.line, width: 1.2, opacity: 0.6 })
   const pathLines = createFieldLines(6000, { color: colors.fg, width: 2, opacity: 0.9 })
-  const compareLines = createFieldLines(6000, { color: colors.pos, width: 1.4, opacity: 0.8 })
-  const particle = markers.make(1, 0.045)
-  const aArrow = arrows.make(colors.pos, 0.011)
-  const vArrow = arrows.make(colors.fg, 0.011)
+  // The field line through the release point: the same yellow as a, drawn brighter than the others.
+  const compareLines = createFieldLines(6000, { color: colors.line, width: 2.8, opacity: 1 })
+  const particle = markers.make(1, 0.03)
+  const aArrow = arrows.make(colors.line, 0.012, 'a')
+  const vArrow = arrows.make(colors.fg, 0.012, 'v')
   group.add(m1.object, m2.object, probe, fArrow.object, eArrow.object, ...cArrows.map(a => a.object), slice.mesh, lines.object, pathLines.object, compareLines.object, particle.object, aArrow.object, vArrow.object)
 
   const show = { slice: false, lines: false, probe: true, contrib: false, particle: false }
@@ -45,9 +48,8 @@ export function createFieldScene(ctx: SceneCtx): Scene & {
   const mag = new Float64Array(SLICE_N * SLICE_N)
   // new Color('#hex') lands in linear working space; undo that so the lerp runs in sRGB, the same
   // interpolation the CSS legend gradient uses, then convert once for the instance color buffer.
-  const cool = new THREE.Color(colors.neg).convertLinearToSRGB()
-  const mid = new THREE.Color(colors.surface).convertLinearToSRGB()
-  const warm = new THREE.Color(colors.pos).convertLinearToSRGB()
+  const lo = new THREE.Color(colors.magLo).convertLinearToSRGB()
+  const hi = new THREE.Color(colors.magHi).convertLinearToSRGB()
   const c = new THREE.Color()
   let range = { logMin: 0, logMax: 1 }
   const norm = (v: { x: number; y: number; z: number }) => Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
@@ -62,8 +64,7 @@ export function createFieldScene(ctx: SceneCtx): Scene & {
         continue
       }
       const u = (m - range.logMin) / span
-      if (u < 0.5) c.copy(cool).lerp(mid, u * 2)
-      else c.copy(mid).lerp(warm, (u - 0.5) * 2)
+      c.copy(lo).lerp(hi, u)
       // Instance colors are stored linear; the lerp above was in sRGB, so convert exactly once.
       c.convertSRGBToLinear()
       slice.setInstance(k, { x: pos[3 * k]!, y: pos[3 * k + 1]!, z: pos[3 * k + 2]! }, { x: dir[3 * k]!, y: dir[3 * k + 1]!, z: dir[3 * k + 2]! }, c)
@@ -105,25 +106,47 @@ export function createFieldScene(ctx: SceneCtx): Scene & {
       probe.position.set(f.probe.x, f.probe.y, f.probe.z)
       const F = f.probeForce()
       const E = f.probeField()
-      const eLen = Math.min(0.6, 0.35 * Math.log10(1 + norm(E) / 2000))
-      const fLen = Math.min(0.9, eLen * Math.abs(f.q0))
       const pulse = 1 + 0.25 * Math.sin(t * 6)
-      fArrow.setVisible(show.probe)
-      eArrow.setVisible(show.probe)
-      if (show.probe) {
-        fArrow.setDirection(f.probe, F, fLen * (hl === 'F' ? pulse : 1))
-        eArrow.setDirection({ x: f.probe.x, y: f.probe.y + 0.02, z: f.probe.z }, E, eLen * (hl === 'E' ? pulse : 1))
-        probe.scale.setScalar(hl === 'q0' ? pulse : 1)
-      }
-      const contribs = show.contrib ? f.contributions() : []
-      cArrows.forEach((a, i) => {
-        const v = contribs[i]
-        if (!v) {
-          a.setVisible(false)
-          return
+      if (show.contrib) {
+        // Tip to tail on one linear scale: each charge's piece in turn, then the white sum from the probe.
+        // Linear, so the chain really does end on the tip of the sum.
+        const contribs = f.contributions()
+        const total = contribs.reduce((acc, v) => acc + norm(v), 0)
+        const k = 0.6 / Math.max(total, norm(E), 1e-30)
+        let tail = { ...f.probe }
+        cArrows.forEach((a, i) => {
+          const v = contribs[i]
+          const src = cs[i]
+          if (!v || !src) {
+            a.setVisible(false)
+            return
+          }
+          a.setColor(src.q >= 0 ? colors.pos : colors.neg)
+          a.setDirection(tail, v, norm(v) * k)
+          tail = { x: tail.x + v.x * k, y: tail.y + v.y * k, z: tail.z + v.z * k }
+        })
+        fArrow.setVisible(false)
+        // Nudge the sum a hair sideways (perpendicular to E) so it stays visible when the chain lines up with it.
+        const eN = norm(E) || 1
+        eArrow.setDirection({ x: f.probe.x + (E.y / eN) * 0.035, y: f.probe.y - (E.x / eN) * 0.035, z: f.probe.z }, E, norm(E) * k)
+        probe.scale.setScalar(1)
+      } else {
+        cArrows.forEach(a => a.setVisible(false))
+        const eLen = Math.min(0.6, 0.35 * Math.log10(1 + norm(E) / 2000))
+        // F = q₀E: same direction as E for + probes, opposite for −, and |q₀| times as long.
+        const fLen = Math.min(0.9, eLen * Math.abs(f.q0))
+        fArrow.setVisible(show.probe)
+        eArrow.setVisible(show.probe)
+        if (show.probe) {
+          // E from the probe; F beside it, shifted sideways in the screen plane so the two never sit on
+          // top of each other (for q₀ = +1 they point the same way).
+          const eN = norm(E) || 1
+          const side = { x: f.probe.x - (E.y / eN) * 0.07, y: f.probe.y + (E.x / eN) * 0.07, z: f.probe.z }
+          fArrow.setDirection(side, F, fLen * (hl === 'F' ? pulse : 1))
+          eArrow.setDirection(f.probe, E, eLen * (hl === 'E' ? pulse : 1))
+          probe.scale.setScalar(hl === 'q0' ? pulse : 1)
         }
-        a.setDirection(f.probe, v, Math.min(0.6, 0.35 * Math.log10(1 + norm(v) / 2000)))
-      })
+      }
       slice.mesh.visible = show.slice
       if (show.slice) {
         const key = `${f.pair}|${f.sliceZ}`

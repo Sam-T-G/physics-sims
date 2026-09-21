@@ -24,7 +24,7 @@ import type { Scene, SceneCtx } from './scenes/types'
 
 export type SceneName = 'pendulum' | 'pair' | 'coulomb' | 'field' | 'spheres' | 'flux' | 'gauss' | 'symmetry'
 
-export type SceneColors = { bg: string; pos: string; neg: string; shell: string; surface: string; line: string; fg: string }
+export type SceneColors = { bg: string; pos: string; neg: string; shell: string; surface: string; line: string; fg: string; magLo: string; magHi: string }
 export type SceneEnv = { pixelRatio: number; document: Document }
 
 const MAX_FACES = 12 * MAX_SUBDIVISION * MAX_SUBDIVISION
@@ -58,7 +58,7 @@ export function createSim1Render(canvas: HTMLCanvasElement, physics: Sim1Physics
   const stage = createStage(canvas, { background: colors.bg, pixelRatio: env.pixelRatio })
   if (!stage) return null
   const markers = createChargeMarkers({ pos: colors.pos, neg: colors.neg }, env.document)
-  const arrows = createArrows()
+  const arrows = createArrows(env.document)
   const sceneCtx: SceneCtx = { physics, markers, arrows, colors, doc: env.document }
   const scenes = {
     pendulum: createPendulumScene(sceneCtx),

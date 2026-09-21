@@ -4,7 +4,7 @@ import { CAMERA_SCENES, FIELD_COPY } from '../content'
 import type { Sim1Physics } from '../physics'
 import type { Sim1Render } from '../render/index'
 import type { Readout } from './beat5'
-import { sig3, waitClick, type Run } from '../flow'
+import { fmtFixed, sig3, waitClick, type Run } from '../flow'
 
 export type Beat3 = { panel: HTMLElement; enter(): void; leave(): void; update(dt: number): void }
 
@@ -30,17 +30,18 @@ export function createBeat3(o: {
     doc,
     prefix: p,
     label: 'The field',
+    // Sizes only: |E| = |F| / |q₀|. The direction story (F flips for a − probe) is in the arrows.
     parts: [
-      { id: 'E', text: 'E', tip: FIELD_COPY.tips.E },
+      { id: 'E', text: '|E|', tip: FIELD_COPY.tips.E },
       ' = ',
-      { id: 'F', text: 'F', tip: FIELD_COPY.tips.F },
-      ' / ',
-      { id: 'q0', text: 'q₀', tip: FIELD_COPY.tips.q0 },
+      { id: 'F', text: '|F|', tip: FIELD_COPY.tips.F },
+      ' ÷ ',
+      { id: 'q0', text: '|q₀|', tip: FIELD_COPY.tips.q0 },
     ],
     onFocus: id => scene.highlight(id === 'F' || id === 'E' || id === 'q0' ? id : null),
   })
-  const px = createSlider({ doc, prefix: p, label: FIELD_COPY.probeX, min: -1, max: 1, step: 0.02, value: 0.35, format: v => `${v.toFixed(2)} m`, onInput: v => f.setProbe({ ...f.probe, x: v }) })
-  const py = createSlider({ doc, prefix: p, label: FIELD_COPY.probeY, min: -1, max: 1, step: 0.02, value: -0.25, format: v => `${v.toFixed(2)} m`, onInput: v => f.setProbe({ ...f.probe, y: v }) })
+  const px = createSlider({ doc, prefix: p, label: FIELD_COPY.probeX, min: -1, max: 1, step: 0.02, value: 0.35, format: v => `${fmtFixed(v, 2)} m`, onInput: v => f.setProbe({ ...f.probe, x: v }) })
+  const py = createSlider({ doc, prefix: p, label: FIELD_COPY.probeY, min: -1, max: 1, step: 0.02, value: -0.25, format: v => `${fmtFixed(v, 2)} m`, onInput: v => f.setProbe({ ...f.probe, y: v }) })
   const q0 = createSegmented({
     doc,
     prefix: p,
@@ -59,12 +60,13 @@ export function createBeat3(o: {
   stayed.textContent = FIELD_COPY.stayed
   const legend = doc.createElement('div')
   legend.className = `${p}-legend`
+  legend.setAttribute('aria-label', 'Arrow color shows field strength on a log scale')
   const legendBar = doc.createElement('div')
   legendBar.className = `${p}-legend-bar`
   const legendMin = doc.createElement('span')
   const legendMax = doc.createElement('span')
   legend.append(legendMin, legendBar, legendMax)
-  const sliceZ = createSlider({ doc, prefix: p, label: FIELD_COPY.sliceZ, min: -0.8, max: 0.8, step: 0.02, value: 0, format: v => `z = ${v.toFixed(2)} m`, onInput: v => f.set({ sliceZ: v }) })
+  const sliceZ = createSlider({ doc, prefix: p, label: FIELD_COPY.sliceZ, min: -0.8, max: 0.8, step: 0.02, value: 0, format: v => `z = ${fmtFixed(v, 2)} m`, onInput: v => f.set({ sliceZ: v }) })
   const showLines = createButton({ doc, prefix: p, label: FIELD_COPY.showLines, onClick: () => {} })
   const rules = doc.createElement('p')
   rules.className = `${p}-note`
@@ -96,7 +98,10 @@ export function createBeat3(o: {
   const axisBtn = createButton({ doc, prefix: p, label: FIELD_COPY.onAxis, kind: 'quiet', onClick: () => {} })
   const releaseNote = doc.createElement('p')
   releaseNote.className = `${p}-note`
-  const stage2 = [stayed, legend, sliceZ.el]
+  const legendCaption = doc.createElement('p')
+  legendCaption.className = `${p}-legend-caption`
+  legendCaption.textContent = 'Arrow color = field strength (log scale). Every arrow is the same length on purpose.'
+  const stage2 = [stayed, legend, legendCaption, sliceZ.el]
   const stage3 = [rules, sources.el]
   panel.append(eq.el, px.el, py.el, q0.el, takeAway, ...stage2, showLines, ...stage3, checkpoint.el, moreBtn, onwardBtn, goBtn, axisBtn, releaseNote)
 
@@ -115,6 +120,7 @@ export function createBeat3(o: {
     await waitClick(takeAway)
     if (id !== flowId) return
     takeAway.hidden = true
+    eq.focus(null)
     hide(eq.el, px.el, py.el, q0.el)
     scene.setShow('probe', false)
     scene.setShow('slice', true)
@@ -129,6 +135,8 @@ export function createBeat3(o: {
     const dirName: Record<CompassDir, string> = { N: 'up', NE: 'up and right', E: 'right', SE: 'down and right', S: 'down', SW: 'down and left', W: 'left', NW: 'up and left', '0': 'nowhere, it is zero' }
     setSources('dipole')
     sources.disable(true)
+    // Direction questions mean screen directions, so put the camera back square to the page first.
+    o.camera(CAMERA_SCENES.field)
     let picked = await checkpoint.ask({ kind: 'compass', question: FIELD_COPY.compass1, allowZero: true })
     if (id !== flowId) return
     f.setProbe({ x: 0, y: 0, z: 0 })
@@ -142,6 +150,7 @@ export function createBeat3(o: {
     setSources('like')
     scene.setShow('probe', false)
     scene.setShow('contrib', false)
+    o.camera(CAMERA_SCENES.field)
     picked = await checkpoint.ask({ kind: 'compass', question: FIELD_COPY.compass2, allowZero: true })
     if (id !== flowId) return
     f.setProbe({ x: 0, y: 0.45, z: 0 })
@@ -179,10 +188,14 @@ export function createBeat3(o: {
     await waitClick(axisBtn)
     if (id !== flowId) return
     axisBtn.hidden = true
+    // The claim below is about the dipole's axis: put the dipole back and make sure the particle is drawn.
+    setSources('dipole')
+    scene.setShow('particle', true)
     const onAxis = { x: -0.2, y: 0, z: 0 }
     scene.compare(f.lineThrough(onAxis))
     f.releaseAt(onAxis)
     releaseNote.textContent = FIELD_COPY.onAxisNote
+    releaseNote.hidden = false
   }
 
   let last = ''
@@ -241,14 +254,14 @@ export function createBeat3(o: {
         const E = f.probeField()
         const mag = (v: { x: number; y: number; z: number }) => Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
         const main = `F on the probe = ${sig3(mag(F))} N`
-        const sub = `E there = ${sig3(mag(E))} N/C. Swap q₀: F changes, E does not.`
+        const sub = `E there = ${sig3(mag(E))} N/C. Swap q₀: F changes size or flips, E stays put.`
         const key = main + sub
         if (key !== last) {
           readout.set(main, sub)
           last = key
         }
         eq.setTerm('F', `${sig3(mag(F))} N`)
-        eq.setTerm('q0', `${f.q0 > 0 ? '+' : ''}${f.q0} nC`)
+        eq.setTerm('q0', `${Math.abs(f.q0)} nC`)
         eq.setTerm('E', `${sig3(mag(E))} N/C`)
       }
       if (!legend.hidden) {

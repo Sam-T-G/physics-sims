@@ -232,3 +232,23 @@ describe('integrate: review regressions (2026-09-20)', () => {
     expect(dropped.alpha).toBe(0)
   })
 })
+
+describe('integrate: stopping condition (2026-09-21)', () => {
+  it('advance stops at the first step where until() is true, whatever the frame size', () => {
+    // Uniform a = 2 m/s² from rest; z = t². Stop the first step z ≥ 0.25 m, i.e. t ≥ 0.5 s.
+    const dt = 2 ** -6
+    const firstStepPast = Math.ceil(0.5 / dt) // z(n·dt) = (n·dt)² ≥ 0.25 first at n = 32
+    for (const frame of [dt, 7 * dt, 50 * dt]) {
+      const integ = createIntegrator({ pos: vec3(0, 0, 0), vel: vec3(0, 0, 0), q: 1, m: 1 }, () => vec3(0, 0, 2), dt, 1000)
+      let stopped = false
+      for (let i = 0; i < 400 && !stopped; i++) stopped = advance(integ, frame, s => s.pos.z >= 0.25).stopped
+      expect(stopped).toBe(true)
+      expect(integ.time).toBe(firstStepPast * dt)
+      expect(integ.accumulator).toBe(0)
+    }
+  })
+  it('without until(), stopped is always false', () => {
+    const integ = createIntegrator({ pos: vec3(0, 0, 0), vel: vec3(0, 0, 0), q: 1, m: 1 }, () => vec3(0, 0, 1), 0.01, 8)
+    expect(advance(integ, 0.05).stopped).toBe(false)
+  })
+})

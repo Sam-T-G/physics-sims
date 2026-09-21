@@ -31,8 +31,8 @@ export const BEATS: readonly BeatCopy[] = [
     label: '2',
     title: 'Coulomb’s law',
     anchor: 'OpenStax 5.3',
-    prompt: 'Drag q₂. Keep an eye on the arrow on q₁.',
-    body: 'Two charges push or pull on each other with the exact same force, always, even when one is huge and the other is tiny. That is F = k q₁q₂ / r². Throw in a third charge and the force on any one of them is just the two pair forces added tip to tail.',
+    prompt: 'Slide r to move q₂. Keep an eye on the arrow on q₁.',
+    body: 'Two charges push or pull on each other with the same size force, in opposite directions, always, even when one is huge and the other is tiny. The size is F = k|q₁q₂| / r²: same signs push apart, opposite signs pull together. Throw in a third charge and the force on any one of them is just the pair forces added tip to tail.',
     tools: ['coulomb', 'superposition'],
   },
   {
@@ -59,7 +59,7 @@ export const BEATS: readonly BeatCopy[] = [
     title: 'Flux',
     anchor: 'OpenStax 6.1',
     prompt: 'Tilt the loop. What happens to the count?',
-    body: 'Picture a flat loop sitting in a field that is the same everywhere. Lines poke through it. Tilt the loop and fewer lines make it through, until it is edge-on and none do. That count is flux: Φ = EA cos θ. It is about lines going through, not lines brushing past.',
+    body: 'Picture a flat loop sitting in a field that is the same everywhere. Lines poke through it. Tilt the loop and fewer lines make it through, until it is edge-on and none do. Flux measures that: Φ = EA cos θ, where θ is the angle between E and n̂, the arrow sticking straight out of the loop. It is about lines going through, not lines brushing past.',
     tools: ['flux'],
   },
   {
@@ -68,7 +68,7 @@ export const BEATS: readonly BeatCopy[] = [
     title: 'Gauss’s law',
     anchor: 'OpenStax 6.2',
     prompt: 'Watch the number as the cap closes.',
-    body: 'Wrap a closed surface around the charge and the flux locks in at q/ε₀. Make the sphere twice as big, drag the charge anywhere inside, squash it into a cube or a blob: still the same number. Drag the charge outside and it drops to zero the instant it crosses. Toss a second charge inside and the number just adds it in.',
+    body: 'Wrap a closed surface around the charge and the flux locks in at q/ε₀. Make the sphere twice as big, move the charge anywhere inside, squash it into a cube or a blob: still the same number. Move the charge outside and it drops to zero the instant it crosses. Toss a second charge inside and the number just adds it in.',
     scene: 'gauss',
     tools: ['gauss'],
   },
@@ -84,14 +84,14 @@ export const BEATS: readonly BeatCopy[] = [
 ]
 
 export const TOOLS: readonly ToolItem[] = [
-  { id: 'charge', name: 'Charge', equation: 'Two kinds. Never made or destroyed. Comes in chunks of e.', beat: BEAT_INDEX.charge },
-  { id: 'coulomb', name: 'Coulomb’s law', equation: 'F = k q₁q₂ / r²', note: 'Same size push on both charges, always. k = 8.99 × 10⁹ N·m²/C².', beat: BEAT_INDEX.coulomb },
-  { id: 'superposition', name: 'Superposition', equation: 'F_net = F₁ + F₂ + …', note: 'Add the arrows tip to tail. Works for fields too.', beat: BEAT_INDEX.coulomb },
+  { id: 'charge', name: 'Charge', equation: 'Two kinds, + and −. The total never changes. It comes in whole chunks of e.', beat: BEAT_INDEX.charge },
+  { id: 'coulomb', name: 'Coulomb’s law', equation: 'F = k|q₁q₂| / r²', note: 'Same size on both charges, opposite directions. Same signs push, opposite signs pull. k = 8.99 × 10⁹ N·m²/C².', beat: BEAT_INDEX.coulomb },
+  { id: 'superposition', name: 'Superposition', equation: 'F_{net} = F₁ + F₂ + …', note: 'Add the arrows tip to tail. Works for fields too.', beat: BEAT_INDEX.coulomb },
   { id: 'field', name: 'Field', equation: 'E = F / q₀', note: 'It is there whether or not anything is around to feel it.', beat: BEAT_INDEX.field },
   { id: 'lines', name: 'Field-line rules', equation: 'Start on +, end on −, or head off to infinity.', note: 'Never cross. Bunch up where the field is strong.', beat: BEAT_INDEX.field },
-  { id: 'flux', name: 'Flux', equation: 'Φ = ∫ E · dA', note: 'Lines going through, not lines brushing past.', beat: BEAT_INDEX.flux },
-  { id: 'gauss', name: 'Gauss’s law', equation: 'Φ_closed = Q_enc / ε₀', note: 'Any closed surface. Any shape. Charge anywhere inside.', beat: BEAT_INDEX.gauss },
-  { id: 'symmetry', name: 'Symmetry', equation: 'When Gauss actually hands you E', note: 'Only when |E| is the same size everywhere on the surface and points straight through it.', beat: BEAT_INDEX.symmetry },
+  { id: 'flux', name: 'Flux', equation: 'Φ = ∫ E · dA', note: 'Lines going through, not lines brushing past. For a flat loop in an even field, Φ = EA cos θ.', beat: BEAT_INDEX.flux },
+  { id: 'gauss', name: 'Gauss’s law', equation: 'Φ_{closed} = Q_{enc} / ε₀', note: 'Any closed surface. Any shape. Charge anywhere inside.', beat: BEAT_INDEX.gauss },
+  { id: 'symmetry', name: 'Symmetry', equation: 'When Gauss actually hands you E', note: 'Only when every part of the surface either gets one size of E straight through it, or has E running along it (no flux there).', beat: BEAT_INDEX.symmetry },
 ]
 
 /** Presets sit far enough back that the whole scene fits a phone's width with the card open. */
@@ -119,13 +119,13 @@ export const PREDICTIONS: readonly Prediction[] = [
     id: 'scale',
     question: 'Double the sphere’s radius. What happens to Φ?',
     truth: 'stay',
-    reveal: 'It stays at 113, big or small. Twice the radius means each patch of surface gets ¼ the field, but there are 4× as many patches. Those cancel exactly, every time.',
+    reveal: 'It stays at 113, big or small. Twice the radius: the field on the surface is about ¼ as strong, but there is 4× as much surface. The total comes out exactly the same, every time.',
   },
   {
     id: 'inside',
-    question: 'Drag the charge somewhere else inside. Φ will…',
+    question: 'Move the charge somewhere else inside. Φ will…',
     truth: 'stay',
-    reveal: 'Still 113. The faces near the charge get more field and the far ones get less, and the total doesn’t budge.',
+    reveal: 'Still 113. The patches near the charge get more field and the far ones get less, and the total doesn’t budge.',
   },
   {
     id: 'morph',
@@ -135,9 +135,9 @@ export const PREDICTIONS: readonly Prediction[] = [
   },
   {
     id: 'outside',
-    question: 'Drag the charge out through the surface. Φ will…',
+    question: 'Move the charge out through the surface. Φ will…',
     truth: 'zero',
-    reveal: 'Zero, the instant it crosses. Now every line that goes in comes back out: the blue faces cancel the orange ones.',
+    reveal: 'Zero, the instant it crosses. Now every line that goes in comes back out: the blue patches (lines coming in) cancel the orange ones (lines going out).',
   },
   {
     id: 'second',
@@ -148,7 +148,7 @@ export const PREDICTIONS: readonly Prediction[] = [
 ]
 
 export const GAUSS_COPY = {
-  open: 'Right now the surface is a bowl with a hole in the top, so some lines get out without crossing it. The number is only part of q/ε₀.',
+  open: 'Right now the surface is a bowl with its open side facing you, so some lines get out without crossing it. The number is only part of q/ε₀.',
   closeCap: 'Close the cap',
   closed: 'It locked in at q/ε₀ = 113 the moment the cap closed. Every line that starts on the charge has to leave through the surface somewhere.',
   flipped: 'Now every line comes in instead of going out, so Φ is −q/ε₀.',
@@ -163,13 +163,13 @@ export const GAUSS_COPY = {
     question: 'A charge sits at some random spot inside this blob. Which tool gets you the flux?',
     answer: 'gauss',
     options: [
-      { id: 'gauss', label: 'Gauss’s law', reason: 'Closed surface, charge inside: Φ = Q_enc/ε₀. Where the charge sits inside doesn’t matter.' },
+      { id: 'gauss', label: 'Gauss’s law', reason: 'Closed surface, charge inside: Φ = Q_{enc}/ε₀. Where the charge sits inside doesn’t matter.' },
       { id: 'coulomb', label: 'Coulomb’s law', reason: 'That gives you E at one point. To get the total flux from it you’d have to integrate over every face.' },
       { id: 'superposition', label: 'Superposition', reason: 'That’s for adding fields from several charges. There’s only one here, and you’d still be stuck integrating.' },
       { id: 'lines', label: 'Field-line rules', reason: 'Close, and it’s the picture behind the answer, but the tool that hands you the number is Gauss’s law.' },
     ],
   },
-  mcqDone: 'Yep. Any closed surface, any shape, charge anywhere inside: Φ = Q_enc/ε₀.',
+  mcqDone: 'Yep. Any closed surface, any shape, charge anywhere inside: Φ = Q_{enc}/ε₀.',
 } as const
 
 export const SPHERES_COPY = {
@@ -197,7 +197,7 @@ export const CAMERA_SCENES: Record<'pendulum' | 'pair' | 'coulomb' | 'field' | '
 }
 
 export const HOOK_COPY = {
-  note: 'Nothing touched it.',
+  note: 'Slide the strings closer together, then flip one of the charges.',
   apart: 'How far apart the strings hang',
   signs: 'The two charges',
   same: 'same sign',
@@ -211,6 +211,7 @@ export const CHARGE_COPY = {
   opposite: 'opposite',
   same: 'same',
   totalNothing: 'Two neutral blobs, stuck together.',
+  totalStacked: 'Two same-sign charges sitting on top of each other.',
   totalPair: 'A + and a −, made together, so the total never moved.',
   totalSame: 'Two of the same sign: that second charge had to come from somewhere else.',
   conserved: 'Zero. Always zero for this pair: pull them apart, change how much, it never budges. That is conservation. And the counter only ever moves in whole steps of e: that is quantization.',
@@ -234,10 +235,10 @@ export const COULOMB_COPY = {
   third: 'Third charge',
   off: 'off',
   on: 'on',
-  thirdNote: 'Now q₂ feels two pushes. Lay them tip to tail and the net arrow is where you end up. That is superposition.',
+  thirdNote: 'Now q₂ feels two pushes, one from q₁ and one from q₃ (each colored by the sign of the charge doing the pushing). Lay them tip to tail and you land exactly on the tip of the yellow arrow, the net force. That is superposition. q₃ pulls on q₁ too, which is why q₁’s arrow tilts.',
   tips: {
     k: 'Just a constant. It sets the units: 8.99 × 10⁹ N·m²/C².',
-    q1: 'Scrub this and the arrows on BOTH charges scale with it.',
+    q1: 'Change q₁ and the arrows on both charges grow or shrink together.',
     q2: 'Same deal. Either charge, both arrows.',
     r: 'Center to center. The line between them.',
     r2: 'Double r and the force drops to a quarter. That is the curve.',
@@ -268,7 +269,7 @@ export const FIELD_COPY = {
   stayed: 'The arrows stay. That is the field: an arrow at every point, there whether or not anything is around to feel it. Color is how strong, on a log scale.',
   sliceZ: 'Slice height',
   showLines: 'Show the field lines',
-  rules: 'Lines start on + (or way out at infinity) and end on − (or infinity). They never cross. And they bunch up where the field is strong: in 3D, density tracks strength in proportion, not to the pixel.',
+  rules: 'Lines start on + (or way out at infinity) and end on − (or infinity). They never cross. And they bunch up where the field is strong: in 3D the number of lines per square metre tracks the strength, though on a flat screen that is only a rough guide.',
   sources: 'Sources',
   single: 'one +',
   dipole: '+ and −',
@@ -280,8 +281,8 @@ export const FIELD_COPY = {
   },
   compass1: 'A + on the left, a − on the right. At the point right between them, which way does E point?',
   compass2: 'Now both are +. At a point straight above the middle, which way does E point?',
-  compassRight: 'Yep. Both pieces are drawn at the probe: add them tip to tail and you get the sum.',
-  compassWrong: (truth: string) => `It points ${truth}. Both pieces are drawn at the probe: add them tip to tail and you get the sum.`,
+  compassRight: 'Yep. Each charge’s piece is drawn at that spot, tip to tail (colored by the sign of the charge it comes from), and the white arrow is their sum.',
+  compassWrong: (truth: string) => `It points ${truth}. Each charge’s piece is drawn at that spot, tip to tail (colored by the sign of the charge it comes from), and the white arrow is their sum.`,
   releaseMcq: {
     question: 'A + charge is let go from rest at this spot. Which path does it take?',
     answer: 'peel',
@@ -293,23 +294,23 @@ export const FIELD_COPY = {
     ],
   },
   release: 'Let it go',
-  released: 'a follows the line; v does not. Watch the two arrows split apart.',
+  released: 'a follows the line; v does not. The yellow arrow is a: it always points along the field line through wherever the charge is right now. The white arrow is v: it points along the path. The bright line is the field line through the starting spot, and the white trail is where the charge actually went, until it smacks into the − charge.',
   onAxis: 'Try it on the axis',
   onAxisNote: 'On the axis the line is straight, so the path and the line sit on top of each other. That is the only time they agree.',
 } as const
 
 export const FLUX_COPY = {
-  tilt: 'Tilt θ',
+  tilt: 'Loop tilt',
   side: 'Loop size',
   tips: {
     E: 'How strong the field is. Denser lines, more flux.',
     A: 'Bigger loop, more lines through it.',
     cos: 'Tilt it and fewer lines make it through.',
-    n: 'n̂ is your call on an open loop. Flip it and Φ flips sign.',
+    n: 'n̂ sticks straight out of the loop, and θ is measured from it. On an open loop which way it points is your call: tap it to flip n̂ and watch Φ flip sign.',
   },
   predict: {
     question: 'Tilt the loop until the flux is half its max.',
-    right: '60°: cos 60° = ½. Half the lines get through.',
+    right: '60°: cos 60° = ½, so Φ drops to exactly half. The line count only roughly halves, since we can only draw so many lines. Φ is the exact number.',
     flipped: 'Half in size, but flipped: cos 120° = −½. That counts too.',
     wrong: (said: string) => `Half is at 60° (cos 60° = ½). You landed on ${said}.`,
   },
@@ -335,7 +336,7 @@ export const FLUX_COPY = {
   bundleWrong: 'Same, actually. Between them E fell as 1/r² and the area grew as r². Same lines, same flux. Hold that thought for the next chapter.',
   toBowl: 'Now a curved surface',
   n: 'Patches',
-  z: 'Charge height',
+  z: 'How deep the charge sits',
   bowlNote: 'Each patch lights up with its own E·n̂ dA, brighter where more field leaves through it (the charge is inside the bowl, so it all leaves). Add them up and you get close. The exact answer is the flat line, and the sum walks toward it as the patches get smaller.',
 } as const
 
@@ -345,27 +346,27 @@ export const SYMMETRY_COPY = {
     answer: 'no',
     options: [
       { id: 'yes', label: 'Yes, E = Φ/A', reason: 'That only works if E is the same size everywhere on the surface, and here it is not.' },
-      { id: 'no', label: 'No, |E| changes from face to face', reason: 'Gauss gives you the total. It cannot hand back what each face got.' },
-      { id: 'ifr', label: 'Yes, if you know r', reason: 'Knowing r does not fix it. The charge is off-center, so faces are at different distances.' },
+      { id: 'no', label: 'No, |E| changes from patch to patch', reason: 'Gauss gives you the total. It cannot hand back what each patch got.' },
+      { id: 'ifr', label: 'Yes, if you know r', reason: 'Knowing r does not fix it. The charge is off-center, so the patches are at different distances from it.' },
     ],
   },
   commitDone: 'Look at the colors: not uniform. Gauss gave the integral; it cannot give the integrand back.',
   inside: 'Inside',
   one: 'one charge',
   dipole: 'a + and a −',
-  dipoleNote: 'Φ = 0 and E is not zero on a single face. Gauss is true here and gives you nothing.',
+  dipoleNote: 'Φ = 0, yet E is nonzero on every patch. Gauss is true here and tells you nothing about E.',
   position: 'Charge position',
   tips: {
     area: 'The whole sphere, 4πr². It only comes out front when E is the same everywhere on it.',
     E: 'Slide the charge to the center. When the color snaps uniform, E can come out of the integral and E·4πr² = q/ε₀. Coulomb’s law pops right back out.',
   },
-  centered: 'Centered. Every face reads the same |E|, straight through. Now E comes out of the integral: E·4πr² = q/ε₀, so E = q/(4πε₀r²). Coulomb’s law, back out of Gauss.',
+  centered: 'Centered. Every patch reads the same |E|, pointing straight out. Now E comes out of the integral: E·4πr² = q/ε₀, so E = q/(4πε₀r²). Coulomb’s law, back out of Gauss.',
   final: {
     question: 'Which of these can Gauss’s law alone hand you E for?',
     options: [
       { id: 'center', label: 'A charge at the center of a sphere', correct: true, reason: 'same |E| everywhere on the sphere, straight through it.' },
-      { id: 'off', label: 'A charge off-center in a sphere', correct: false, reason: 'you get the flux, but |E| differs face to face.' },
-      { id: 'dip', label: 'A + and − pair inside a sphere', correct: false, reason: 'Φ = 0 while E is nonzero everywhere. No.' },
+      { id: 'off', label: 'A charge off-center in a sphere', correct: false, reason: 'you get the flux, but |E| differs from patch to patch.' },
+      { id: 'dip', label: 'A + and − pair inside a sphere', correct: false, reason: 'Φ = 0 while E is nonzero on every patch.' },
       { id: 'line', label: 'An endless straight line of charge', correct: true, reason: 'wrap a cylinder around it; the side has one |E|, the end caps get nothing.' },
       { id: 'plane', label: 'An endless flat sheet of charge', correct: true, reason: 'a pillbox through it; the two flat ends share one |E|, the side gets nothing.' },
       { id: 'ball', label: 'A uniformly charged ball, from outside', correct: true, reason: 'a sphere around it looks just like the centered point charge.' },
@@ -380,14 +381,13 @@ export const SYMMETRY_COPY = {
 } as const
 
 export const APPROX_COPY = {
-  title: 'What this sim is approximating',
+  title: 'What this sim is simplifying',
   items: [
-    { id: 'rc', label: 'Capture radius r_c', value: '0.05 m on the Gauss surface, 0.06 m in the field chapter, 0.04 m elsewhere', note: 'inside it the field is a uniformly charged ball, so nothing blows up' },
-    { id: 'lines', label: 'Lines drawn', value: '48 per nC, 24 per μC', note: 'density tracks strength in proportion, not to the pixel' },
-    { id: 'emin', label: 'Line stops when |E| <', value: '1e-4 V/m', note: '1e-2 V/m in the field chapter' },
-    { id: 'steps', label: 'Line step cap', value: '3000 steps', note: '4000 in the field chapter' },
-    { id: 'mesh', label: 'Surface patches', value: '8 × 8 per cube face, 768 triangles', note: 'flux is exact per patch, so this only changes the drawing' },
-    { id: 'dt', label: 'Released charge step', value: '0.4 μs, played at ×0.0025', note: 'velocity Verlet with ω·dt ≤ 0.1; the flight across a metre takes a few seconds on screen' },
-    { id: 'particle', label: 'Released charge', value: '1 nC on 1 ng', note: 'a speck, so it moves' },
+    { id: 'rc', label: 'Charges are tiny balls', value: 'radius 5 cm in chapters 3b and 5, 6 cm in chapter 3, 4 cm elsewhere', note: 'Inside that, the field is a uniformly charged ball’s, so nothing blows up to infinity. Outside it is exact Coulomb. The released charge stops when it hits one of these balls.' },
+    { id: 'lines', label: 'How many lines we draw', value: '48 per nC (24 per μC in chapter 3; the chapter 4 bundle is a denser sample)', note: 'More lines means a stronger field. The count is a picture; the numbers on screen are the exact values.' },
+    { id: 'emin', label: 'When a line stops', value: 'when it hits a charge, leaves the box, or the field drops below 0.0001 N/C', note: '0.01 N/C in chapter 3.' },
+    { id: 'steps', label: 'Longest line', value: '3000 steps', note: '4000 in chapter 3.' },
+    { id: 'mesh', label: 'Surface patches', value: '768 triangles on the Gauss surface', note: 'Flux through a closed surface is exact at any patch count. Only chapter 4’s curved-bowl estimate depends on the patches, and that is the point of it.' },
+    { id: 'dt', label: 'The released charge', value: 'a speck with 1 nC of charge and 1 ng of mass', note: 'It moves in steps of 0.4 microseconds, played about 8,000× slower than real life so you can watch. The real trip takes about half a millisecond.' },
   ],
 } as const

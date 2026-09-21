@@ -5,7 +5,7 @@ import { COULOMB_COPY } from '../content'
 import { COULOMB_R_MAX, type Sim1Physics } from '../physics'
 import type { Sim1Render } from '../render/index'
 import type { Readout } from './beat5'
-import { sig3, tweenValue, waitClick, type Run } from '../flow'
+import { fmtFixed, sig3, tweenValue, waitClick, type Run } from '../flow'
 import { createButton } from '@lib/chrome'
 
 export type Beat2 = { panel: HTMLElement; enter(): void; leave(): void; update(): void }
@@ -22,15 +22,16 @@ export function createBeat2(o: { doc: Document; prefix: string; physics: Sim1Phy
     doc,
     prefix: p,
     label: 'Coulomb’s law',
+    // F = k|q₁q₂|/r² with the live numbers plugged in (the symbols are in the card text above).
     parts: [
       { id: 'F', text: 'F' },
       ' = ',
-      { id: 'k', text: 'k', tip: COULOMB_COPY.tips.k },
-      ' · ',
+      { id: 'k', text: '8.99 × 10⁹', tip: COULOMB_COPY.tips.k },
+      ' × |',
       { id: 'q1', text: 'q₁', tip: COULOMB_COPY.tips.q1 },
-      ' · ',
+      ' × ',
       { id: 'q2', text: 'q₂', tip: COULOMB_COPY.tips.q2 },
-      ' / ',
+      '| ÷ ',
       { id: 'r2', text: 'r²', tip: COULOMB_COPY.tips.r2 },
     ],
     onFocus: id => {
@@ -40,8 +41,8 @@ export function createBeat2(o: { doc: Document; prefix: string; physics: Sim1Phy
     },
   })
   const rSlider = createSlider({ doc, prefix: p, label: COULOMB_COPY.r, min: 0.3, max: COULOMB_R_MAX, step: 0.01, value: 0.5, format: v => `${v.toFixed(2)} m`, onInput: v => c.set({ r: v }) })
-  const q1Slider = createSlider({ doc, prefix: p, label: COULOMB_COPY.q1, min: -4, max: 4, step: 0.5, value: 1, format: v => `${v > 0 ? '+' : ''}${v.toFixed(1)} μC`, onInput: v => c.set({ q1: v }) })
-  const q2Slider = createSlider({ doc, prefix: p, label: COULOMB_COPY.q2, min: -4, max: 4, step: 0.5, value: 1, format: v => `${v > 0 ? '+' : ''}${v.toFixed(1)} μC`, onInput: v => c.set({ q2: v }) })
+  const q1Slider = createSlider({ doc, prefix: p, label: COULOMB_COPY.q1, min: -4, max: 4, step: 0.5, value: 1, format: v => `${fmtFixed(v, 1, true)} μC`, onInput: v => c.set({ q1: v }) })
+  const q2Slider = createSlider({ doc, prefix: p, label: COULOMB_COPY.q2, min: -4, max: 4, step: 0.5, value: 1, format: v => `${fmtFixed(v, 1, true)} μC`, onInput: v => c.set({ q2: v }) })
   const third = createSegmented({
     doc,
     prefix: p,
@@ -75,12 +76,19 @@ export function createBeat2(o: { doc: Document; prefix: string; physics: Sim1Phy
     rSlider.disable(on)
     q1Slider.disable(on)
     q2Slider.disable(on)
+    third.disable(on)
   }
   const flow = async (id: number) => {
     await waitClick(startBtn)
     if (id !== flowId) return
     startBtn.hidden = true
-    // The reveals assume the default r and q₁, so the sliders rest until both predictions are done.
+    // The reveals are about the pair alone at the default r and q₁: reset, third charge off, sliders resting.
+    c.reset()
+    rSlider.set(c.r)
+    q1Slider.set(c.q1)
+    q2Slider.set(c.q2)
+    third.set('off')
+    thirdNote.hidden = true
     lockSliders(true)
     // Prediction 1: double r.
     const r0 = c.r
@@ -156,16 +164,17 @@ export function createBeat2(o: { doc: Document; prefix: string; physics: Sim1Phy
     update() {
       if (panel.hidden) return
       const F = c.pairMagnitude()
-      const main = `F = ${sig3(F)} N on each`
-      const sub = `r = ${c.r.toFixed(2)} m${c.third ? ', plus the third charge’s push on q₂' : ''}`
+      const main = c.third ? `Between q₁ and q₂: F = ${sig3(F)} N` : `F = ${sig3(F)} N on each`
+      const sub = c.third ? `r = ${c.r.toFixed(2)} m. The yellow arrows are the net forces, with q₃ included.` : `r = ${c.r.toFixed(2)} m, same size on both, opposite directions`
       const key = main + sub
       if (key !== last) {
         readout.set(main, sub)
         last = key
       }
+      const q = (v: number) => `${fmtFixed(v, 1)} μC`
       eq.setTerm('F', `${sig3(F)} N`)
-      eq.setTerm('q1', `${c.q1.toFixed(1)} μC`)
-      eq.setTerm('q2', `${c.q2.toFixed(1)} μC`)
+      eq.setTerm('q1', q(c.q1))
+      eq.setTerm('q2', q(c.q2))
       eq.setTerm('r2', `(${c.r.toFixed(2)} m)²`)
       const pk = `${c.q1}|${c.q2}|${c.r}`
       if (pk !== lastPlot) {

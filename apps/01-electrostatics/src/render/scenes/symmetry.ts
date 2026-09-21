@@ -14,7 +14,8 @@ export function createSymmetryScene(ctx: SceneCtx): Scene & { setReveal(on: bool
 
   // Reveal: line + cylinder, sheet + pillbox, ball + sphere. Counting faces bright, others dim.
   const reveal = new THREE.Group()
-  const bright = new THREE.MeshStandardMaterial({ color: colors.pos, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthWrite: false })
+  // The faces that count glow cream (the "strong" end of the E ramp); the ones that get no flux stay dim.
+  const bright = new THREE.MeshStandardMaterial({ color: colors.magHi, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })
   const dim = new THREE.MeshStandardMaterial({ color: colors.surface, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false })
   const solid = new THREE.MeshStandardMaterial({ color: colors.line, roughness: 0.7 })
   const rodGeo = new THREE.CylinderGeometry(0.02, 0.02, 1.6, 12, 1)
@@ -51,8 +52,9 @@ export function createSymmetryScene(ctx: SceneCtx): Scene & { setReveal(on: bool
   group.add(main, reveal)
 
   const mags = new Float64Array(physics.symmetry.mesh.faceCount)
-  const base = new THREE.Color(colors.surface)
-  const warm = new THREE.Color(colors.pos)
+  // Same "how strong" ramp as the chapter 3 arrows (lerped in sRGB, converted once).
+  const lo = new THREE.Color(colors.magLo).convertLinearToSRGB()
+  const hi = new THREE.Color(colors.magHi).convertLinearToSRGB()
   let key = ''
   let pulse = false
   let colored = true
@@ -78,11 +80,15 @@ export function createSymmetryScene(ctx: SceneCtx): Scene & { setReveal(on: bool
       if (k !== key) {
         if (!colored) surface.refill(sy.mesh)
         else {
-          const [min, max] = sy.faceMagnitudes(mags)
-          const span = Math.max(1e-9, max - min)
+          sy.faceMagnitudes(mags)
+          // One fixed log scale for every position (see colorRange), clamped at both ends.
+          const [refLo, refHi] = sy.colorRange()
+          const l0 = Math.log(refLo)
+          const span = Math.log(refHi) - l0
           surface.refill(sy.mesh, (f, out) => {
-            const u = (mags[f]! - min) / span
-            out.copy(base).lerp(warm, 0.15 + 0.85 * u)
+            const m = mags[f]!
+            const u = m > 0 ? Math.min(1, Math.max(0, (Math.log(m) - l0) / span)) : 0
+            out.copy(lo).lerp(hi, u).convertSRGBToLinear()
           })
         }
         key = k

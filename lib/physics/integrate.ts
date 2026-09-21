@@ -58,17 +58,24 @@ export function step(integ: Integrator): void {
  * if exactly maxSteps steps fit, the sub-step remainder is kept, so the sim clock never runs slow at a
  * frame rate that happens to be a multiple of dt. Returns alpha = accumulator / dt ∈ [0, 1) for render
  * interpolation. deltaSeconds ≤ 0 steps nothing.
+ * until, if given, is checked after every step (not once per call), so an event such as hitting a charge
+ * is caught at the same step whatever the frame rate. When it returns true the stepping stops there, the
+ * accumulator is cleared and stopped is true.
  */
-export function advance(integ: Integrator, deltaSeconds: number): { alpha: number } {
+export function advance(integ: Integrator, deltaSeconds: number, until?: (state: ParticleState) => boolean): { alpha: number; stopped: boolean } {
   if (deltaSeconds > 0) integ.accumulator += deltaSeconds
   let steps = 0
   while (integ.accumulator >= integ.dt && steps < integ.maxSteps) {
     step(integ)
     integ.accumulator -= integ.dt
     steps++
+    if (until && until(integ.state)) {
+      integ.accumulator = 0
+      return { alpha: 0, stopped: true }
+    }
   }
   if (steps === integ.maxSteps && integ.accumulator >= integ.dt) integ.accumulator = 0
-  return { alpha: integ.accumulator / integ.dt }
+  return { alpha: integ.accumulator / integ.dt, stopped: false }
 }
 
 /** (1 − alpha)·prev.pos + alpha·state.pos: the position to draw between fixed steps. Exact at 0 and 1. */

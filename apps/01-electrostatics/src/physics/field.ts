@@ -25,8 +25,11 @@ export const PARTICLE_Q = 1e-9
 export const PARTICLE_M = 1e-12
 /** ω_max·dt ≤ 0.1 with ω_max ≈ 2.0e5 rad/s for these numbers (PARTICLE_OMEGA_MAX below). */
 export const DT = 4e-7
-/** Sim seconds per wall second: the ~ms flight across a metre plays out over a few seconds. */
-export const TIME_SCALE = 0.0025
+/**
+ * Sim seconds per wall second. From the chapter's release point the charge hits the − charge after 0.527 ms
+ * (same at 20, 60 and 144 fps, measured 2026-09-21), so this plays the flight over about 4.4 s.
+ */
+export const TIME_SCALE = 0.00012
 export const MAX_PATH = 4000
 
 export type Field = {
@@ -133,14 +136,16 @@ export function createField(): Field {
     tick(deltaSeconds) {
       const integ = s.particle
       if (!integ || !s.flying) return false
-      advance(integ, deltaSeconds * TIME_SCALE)
-      const p = integ.state.pos
-      if (s.path.length < MAX_PATH) s.path.push({ ...p })
+      // Hitting a charge (its ball of radius r_c) or leaving the region is checked after every step, so the
+      // outcome is the same at any frame rate. At one check per frame the charge could pass straight through.
       const cs = s.charges()
-      const captured = cs.some(c => length({ x: p.x - c.pos.x, y: p.y - c.pos.y, z: p.z - c.pos.z }) < c.rc)
-      // Wider than the line box: a charge released from rest here is bound and turns around near 2.9 m.
-      const gone = Math.abs(p.x) > 3.6 || Math.abs(p.y) > 3.6 || Math.abs(p.z) > 3.6
-      if (captured || gone) s.flying = false
+      const ended = (st: { pos: Vec3 }) => {
+        const p = st.pos
+        return cs.some(c => length({ x: p.x - c.pos.x, y: p.y - c.pos.y, z: p.z - c.pos.z }) < c.rc) || Math.abs(p.x) > 3.6 || Math.abs(p.y) > 3.6 || Math.abs(p.z) > 3.6
+      }
+      const { stopped } = advance(integ, deltaSeconds * TIME_SCALE, ended)
+      if (s.path.length < MAX_PATH) s.path.push({ ...integ.state.pos })
+      if (stopped) s.flying = false
       return s.flying
     },
     lineThrough: p => traceLine(s.charges(), p, { ...traceOpts, direction: 1 }),

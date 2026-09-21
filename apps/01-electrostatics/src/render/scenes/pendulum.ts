@@ -15,7 +15,7 @@ export function createPendulumScene(ctx: SceneCtx): Scene {
   const threadMat = new THREE.MeshStandardMaterial({ color: colors.line, roughness: 0.8 })
   const threads = [new THREE.Mesh(threadGeo, threadMat), new THREE.Mesh(threadGeo, threadMat)]
   const bobs = [markers.make(1, 0.07), markers.make(1, 0.07)]
-  const forces = [arrows.make(colors.line, 0.014), arrows.make(colors.line, 0.014)]
+  const forces = [arrows.make(colors.line, 0.014, 'F'), arrows.make(colors.line, 0.014, 'F')]
   group.add(bar, ...threads, ...bobs.map(b => b.object), ...forces.map(a => a.object))
   const up = new THREE.Vector3(0, 1, 0)
   const dir = new THREE.Vector3()

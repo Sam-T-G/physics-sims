@@ -1,4 +1,5 @@
 export * from './types'
+export * from './richText'
 export * from './motion'
 export * from './camera'
 export * from './chapters'

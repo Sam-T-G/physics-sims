@@ -25,6 +25,8 @@ export type FluxLoop = {
   side: number
   /** Tilt of n̂ away from E, degrees, 0..180. */
   thetaDeg: number
+  /** n̂ is a choice for an open surface; flipped points it the other way, and Φ changes sign. */
+  flipped: boolean
   normal(): Vec3
   area(): number
   /** Φ = E·n̂·A, exact. */
@@ -33,7 +35,7 @@ export type FluxLoop = {
   linesThrough(): number
   /** The grid lines as segments, for drawing. */
   gridLines(): FieldLine[]
-  set(patch: Partial<Pick<FluxLoop, 'side' | 'thetaDeg'>>): void
+  set(patch: Partial<Pick<FluxLoop, 'side' | 'thetaDeg' | 'flipped'>>): void
   reset(): void
 }
 
@@ -44,7 +46,10 @@ export type BundleLoops = {
   a1: number
   /** Exact flux through each square loop, by solid angle. Equal by construction, and computed anyway. */
   fluxes(): { near: number; far: number }
+  /** The bundle: one ray from the charge through the center of each cell of a 5 × 5 grid on the near loop. */
   rays: FieldLine[]
+  /** The rest of the charge's lines, drawn faint for context. */
+  background: FieldLine[]
   /** How many of the drawn rays pass through each loop. */
   raysThrough(): { near: number; far: number }
   loopCorners(which: 'near' | 'far'): Vec3[]
@@ -62,6 +67,12 @@ export type Bowl = {
   centroidSum(): number
   /** The exact partial flux through the current bowl. */
   exact(): number
+  /**
+   * Exact flux through the smooth unit hemisphere the patches approximate, charge on the axis at depth h:
+   * the bowl plus the flat disk over its rim enclose the charge, the disk takes Ω = 2π(1 − h/√(1 + h²)),
+   * so the bowl gets 2π(1 + h/√(1 + h²)) and Φ = q·Ω/(4πε₀). This is the line the patch sums walk toward.
+   */
+  smoothExact(): number
   /** Centroid sums for every subdivision, for the convergence plot. */
   series(): { x: number; y: number }[]
   /** Per-face E·n̂ dA on the current bowl for the coloring. */
@@ -74,9 +85,11 @@ export function createFluxLoop(): FluxLoop {
   const s: FluxLoop = {
     side: 0.5,
     thetaDeg: 0,
+    flipped: false,
     normal() {
       const t = (s.thetaDeg * Math.PI) / 180
-      return { x: Math.cos(t), y: Math.sin(t), z: 0 }
+      const f = s.flipped ? -1 : 1
+      return { x: f * Math.cos(t), y: f * Math.sin(t), z: 0 }
     },
     area: () => s.side * s.side,
     flux: () => fluxUniformLoop({ x: UNIFORM_E, y: 0, z: 0 }, s.area(), s.normal()),
@@ -105,6 +118,7 @@ export function createFluxLoop(): FluxLoop {
     reset() {
       s.side = 0.5
       s.thetaDeg = 0
+      s.flipped = false
     },
   }
   return s
@@ -123,7 +137,8 @@ export function createBundleLoops(): BundleLoops {
     charge,
     d1: 0.5,
     a1: 0.3,
-    rays: radialRays(charge, 96, 2.2),
+    rays: [],
+    background: radialRays(charge, 48, 2.2),
     fluxes() {
       const near = squareFlux(s.loopCorners('near'))
       const far = squareFlux(s.loopCorners('far'))
@@ -151,6 +166,16 @@ export function createBundleLoops(): BundleLoops {
       ]
     },
   }
+  // The bundle: rays from the charge through the 25 cell centers of the near loop, long enough to pass the far one.
+  const cells = 5
+  for (let i = 0; i < cells; i++) {
+    for (let j = 0; j < cells; j++) {
+      const y = -s.a1 / 2 + ((i + 0.5) * s.a1) / cells
+      const z = -s.a1 / 2 + ((j + 0.5) * s.a1) / cells
+      const reach = 2.6 / Math.sqrt(s.d1 * s.d1 + y * y + z * z)
+      s.rays.push({ points: [{ x: 0, y: 0, z: 0 }, { x: s.d1 * reach, y: y * reach, z: z * reach }], end: 'box' })
+    }
+  }
   /** Exact flux of the 1 nC charge at the origin through a square: q·Ω/(4πε₀) with Ω from two triangles. */
   function squareFlux(c: Vec3[]): number {
     const omega = triangleSolidAngle(c[0]!, c[1]!, c[2]!) + triangleSolidAngle(c[0]!, c[2]!, c[3]!)
@@ -176,6 +201,11 @@ export function createBowl(): Bowl {
     current: () => meshes[s.n - 1]!,
     centroidSum: () => fluxCentroid(s.current(), [charge]),
     exact: () => fluxExact(s.current(), [charge]),
+    smoothExact() {
+      const h = Math.abs(s.z)
+      const omega = 2 * Math.PI * (1 + h / Math.sqrt(1 + h * h))
+      return (charge.q * omega) / (4 * Math.PI * EPSILON_0)
+    },
     series: () => meshes.map((m, i) => ({ x: i + 1, y: fluxCentroid(m, [charge]) })),
     faceFlux(out) {
       const m = s.current()

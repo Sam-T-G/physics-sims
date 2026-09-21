@@ -10,7 +10,7 @@ export function createFluxScene(ctx: SceneCtx): Scene & {
   setPart(part: 'loop' | 'bundle' | 'bowl'): void
   highlight(h: FluxHighlight): void
   /** Nudge inputs for the linked terms (the chrome tweens these). */
-  visual: { tiltOffset: number; areaScale: number; lineOpacity: number; nFlip: number }
+  visual: { tiltOffset: number; areaScale: number; lineOpacity: number }
 } {
   const { physics, markers, arrows, colors } = ctx
   const group = new THREE.Group()
@@ -23,21 +23,24 @@ export function createFluxScene(ctx: SceneCtx): Scene & {
   const loopMat = new THREE.MeshStandardMaterial({ color: colors.surface, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false })
   const loop = new THREE.Mesh(loopGeo, loopMat)
   loop.renderOrder = 8
-  const nArrow = arrows.make(colors.pos, 0.012)
-  const eArrow = arrows.make(colors.line, 0.012)
+  const nArrow = arrows.make(colors.fg, 0.012, 'n̂')
+  const eArrow = arrows.make(colors.line, 0.012, 'E')
   loopGroup.add(uniformLines.object, loop, nArrow.object, eArrow.object)
 
   // Same bundle: charge, rays, two square loops.
   const bundleGroup = new THREE.Group()
   const bCharge = markers.make(1, 0.06)
-  const bRays = createFieldLines(400, { color: colors.line, width: 1.1, opacity: 0.55 })
+  // The bundle itself, bright; the charge's other lines faint, for context.
+  const bRays = createFieldLines(400, { color: colors.line, width: 1.6, opacity: 0.95 })
   bRays.set(physics.bundle.rays)
+  const bBackground = createFieldLines(400, { color: colors.line, width: 1, opacity: 0.16 })
+  bBackground.set(physics.bundle.background)
   const squareMat = new THREE.MeshStandardMaterial({ color: colors.surface, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })
   const near = new THREE.Mesh(loopGeo, squareMat)
   const far = new THREE.Mesh(loopGeo, squareMat)
   near.renderOrder = 8
   far.renderOrder = 9
-  bundleGroup.add(bCharge.object, bRays.object, near, far)
+  bundleGroup.add(bCharge.object, bBackground.object, bRays.object, near, far)
 
   // Bowl: one surface mesh refilled per subdivision, colored per face.
   const bowlGroup = new THREE.Group()
@@ -48,7 +51,7 @@ export function createFluxScene(ctx: SceneCtx): Scene & {
   group.add(loopGroup, bundleGroup, bowlGroup)
   let part: 'loop' | 'bundle' | 'bowl' = 'loop'
   let hl: FluxHighlight = null
-  const visual = { tiltOffset: 0, areaScale: 1, lineOpacity: 0.6, nFlip: 0 }
+  const visual = { tiltOffset: 0, areaScale: 1, lineOpacity: 0.6 }
   const faceFlux = new Float64Array(12 * 25)
   const base = new THREE.Color(colors.surface)
   const warm = new THREE.Color(colors.pos)
@@ -82,8 +85,11 @@ export function createFluxScene(ctx: SceneCtx): Scene & {
         loop.quaternion.copy(spin).multiply(faceX)
         loop.scale.setScalar(l.side * visual.areaScale)
         const n = l.normal()
-        const flip = visual.nFlip > 0.5 ? -1 : 1
-        nArrow.setDirection({ x: 0, y: 0, z: 0 }, { x: n.x * flip, y: n.y * flip, z: 0 }, 0.45)
+        // n̂ comes from the physics (it includes the flip), turned by the same wobble as the drawn loop, so it
+        // always sticks straight out of the plane you see and never disagrees with Φ's sign.
+        const flipSign = l.flipped ? -1 : 1
+        nArrow.setDirection({ x: 0, y: 0, z: 0 }, { x: flipSign * Math.cos(theta), y: flipSign * Math.sin(theta), z: 0 }, 0.45)
+        void n
         eArrow.setDirection({ x: -1.0, y: -0.9, z: 0 }, { x: 1, y: 0, z: 0 }, 0.35 * (UNIFORM_E / 200))
         uniformLines.object.visible = true
         ;(uniformLines.object.material as THREE.Material).opacity = visual.lineOpacity
@@ -117,6 +123,7 @@ export function createFluxScene(ctx: SceneCtx): Scene & {
       loopGeo.dispose()
       loopMat.dispose()
       bRays.dispose()
+      bBackground.dispose()
       squareMat.dispose()
       bowl.dispose()
     },

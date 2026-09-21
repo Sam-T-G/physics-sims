@@ -3,6 +3,8 @@
  * commit (a choice or a slider), and then the reveal shows the truth and the error. An MCQ shows the reason
  * behind every option. No scores, no persistence. The caller gates Next until the promise resolves.
  */
+import { plainText, setRichText } from './richText'
+
 export type ChoiceOption = { id: string; label: string; reason?: string }
 
 export type ChoiceSpec = {
@@ -83,7 +85,7 @@ export function createCheckpoint(o: { doc: Document; prefix: string }): Checkpoi
   function ask(spec: ChoiceSpec | SliderSpec | MultiSpec | CompassSpec): Promise<string | number | string[] | CompassDir> {
     reset()
     root.hidden = false
-    q.textContent = spec.question
+    setRichText(q, spec.question)
     if (spec.kind === 'multi') {
       return new Promise<string[]>(resolve => {
         const picked = new Set<string>()
@@ -91,7 +93,7 @@ export function createCheckpoint(o: { doc: Document; prefix: string }): Checkpoi
           const b = doc.createElement('button')
           b.type = 'button'
           b.className = `${p}-check-opt`
-          b.textContent = opt.label
+          setRichText(b, opt.label)
           b.setAttribute('aria-pressed', 'false')
           b.addEventListener('click', () => {
             if (picked.has(opt.id)) picked.delete(opt.id)
@@ -118,7 +120,7 @@ export function createCheckpoint(o: { doc: Document; prefix: string }): Checkpoi
           list.className = `${p}-check-reasons`
           for (const opt of spec.options) {
             const li = doc.createElement('li')
-            li.textContent = `${opt.correct ? 'Yes' : 'No'}, ${opt.label}: ${opt.reason}`
+            setRichText(li, `${opt.label}: ${opt.correct ? 'yes' : 'no'}, ${opt.reason}`)
             list.appendChild(li)
           }
           body.appendChild(list)
@@ -163,14 +165,14 @@ export function createCheckpoint(o: { doc: Document; prefix: string }): Checkpoi
           const b = doc.createElement('button')
           b.type = 'button'
           b.className = `${p}-check-opt`
-          b.textContent = opt.label
+          setRichText(b, opt.label)
           b.addEventListener('click', () => {
             if (spec.answer !== undefined && opt.id !== spec.answer) {
               b.classList.add(`${p}-check-opt-wrong`)
               b.disabled = true
               out.hidden = false
               out.className = `${p}-check-reveal ${p}-check-reveal-wrong`
-              out.textContent = opt.reason ?? 'Not that one.'
+              setRichText(out, opt.reason ?? 'Not that one.')
               return
             }
             buttons.forEach(x => (x.disabled = true))
@@ -190,7 +192,7 @@ export function createCheckpoint(o: { doc: Document; prefix: string }): Checkpoi
       input.max = String(spec.max)
       input.step = String(spec.step)
       input.value = String(spec.initial)
-      input.setAttribute('aria-label', spec.question)
+      input.setAttribute('aria-label', plainText(spec.question))
       const val = doc.createElement('output')
       val.className = `${p}-check-value`
       val.textContent = spec.format(spec.initial)
@@ -215,7 +217,7 @@ export function createCheckpoint(o: { doc: Document; prefix: string }): Checkpoi
       root.hidden = false
       out.hidden = false
       out.className = `${p}-check-reveal ${p}-check-reveal-${tone}`
-      out.textContent = text
+      setRichText(out, text)
       // The pressed option just got disabled, which drops focus to the body; keep it on the answer.
       out.tabIndex = -1
       out.focus({ preventScroll: true })

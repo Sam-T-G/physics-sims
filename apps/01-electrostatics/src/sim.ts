@@ -49,6 +49,8 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
       surface: token('--ps-surface', '#c9d6ea'),
       line: token('--ps-line', '#f3d9a4'),
       fg: token('--ps-fg', '#eef1f6'),
+      magLo: token('--ps-mag-lo', '#56688c'),
+      magHi: token('--ps-mag-hi', '#fff0c2'),
     },
     { pixelRatio: Math.min(window.devicePixelRatio, 2), document: el.ownerDocument },
   )

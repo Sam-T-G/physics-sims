@@ -16,11 +16,12 @@ export function createCoulombScene(ctx: SceneCtx): Scene & { highlight(h: Coulom
   const lineMat = new THREE.MeshStandardMaterial({ color: colors.line, roughness: 0.8, transparent: true, opacity: 0.55 })
   const sep = new THREE.Mesh(lineGeo, lineMat)
   sep.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0))
-  const f1 = arrows.make(colors.line, 0.016)
-  const f2 = arrows.make(colors.line, 0.016)
-  const f3 = arrows.make(colors.line, 0.016)
-  const c1 = arrows.make(colors.pos, 0.011)
-  const c3 = arrows.make(colors.neg, 0.011)
+  const f1 = arrows.make(colors.line, 0.016, 'F')
+  const f2 = arrows.make(colors.line, 0.016, 'F')
+  const f3 = arrows.make(colors.line, 0.016, 'F')
+  // The two pushes on q₂, colored by the sign of the charge doing the pushing.
+  const c1 = arrows.make(colors.pos, 0.011, 'from q₁', 'middle')
+  const c3 = arrows.make(colors.neg, 0.011, 'from q₃', 'middle')
   group.add(m1.object, m2.object, m3.object, sep, f1.object, f2.object, f3.object, c1.object, c3.object)
   let hl: CoulombHighlight = null
   let t = 0
@@ -63,7 +64,10 @@ export function createCoulombScene(ctx: SceneCtx): Scene & { highlight(h: Coulom
       if (p3) f3.setDirection(p3, F3, lenOf(mag(F3)))
       else f3.setVisible(false)
       // Tip to tail on q2: the q1 contribution first, then the q3 one from its tip, then the sum.
+      f2.setLabel(p3 ? 'net F' : 'F')
       if (p3 && pair) {
+        c1.setColor(c.q1 >= 0 ? colors.pos : colors.neg)
+        c3.setColor(c.q3 >= 0 ? colors.pos : colors.neg)
         const { fromQ1, fromQ3 } = pair
         const l1 = lenOf(mag(fromQ1))
         const l3 = lenOf(mag(fromQ3))

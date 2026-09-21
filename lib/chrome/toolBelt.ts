@@ -1,5 +1,6 @@
 import { gsap } from 'gsap'
 import type { ToolItem } from './types'
+import { setRichText } from './richText'
 
 export type ToolBeltOptions = {
   /** Where the strip is placed (the card's belt slot). */
@@ -61,8 +62,8 @@ export function createToolBelt(opts: ToolBeltOptions): ToolBelt {
   const show = (tool: ToolItem) => {
     open = tool.id
     detailName.textContent = tool.name
-    detailEq.textContent = tool.equation
-    detailNote.textContent = tool.note ?? ''
+    setRichText(detailEq, tool.equation)
+    setRichText(detailNote, tool.note ?? '')
     detailNote.hidden = !tool.note
     jump.textContent = `Go to chapter ${opts.labelOf ? opts.labelOf(tool.beat) : String(tool.beat)}`
     jump.onclick = () => {

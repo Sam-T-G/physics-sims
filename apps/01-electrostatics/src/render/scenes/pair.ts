@@ -18,7 +18,8 @@ export function createPairScene(ctx: SceneCtx): Scene {
     sync() {
       const p = physics.pair
       const pos = p.positions()
-      const showPair = p.apart > 0.05
+      // Two same-sign charges never look neutral, even stacked; only the opposite pair starts as one blob.
+      const showPair = p.apart > 0.05 || p.same
       neutral.visible = !showPair
       a.object.visible = showPair
       b.object.visible = showPair

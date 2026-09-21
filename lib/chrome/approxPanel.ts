@@ -2,6 +2,8 @@
  * The explain-the-approximation panel: always reachable, lists what the sim approximates and the numbers it
  * uses. The sim says what it is approximating instead of hiding it.
  */
+import { setRichText } from './richText'
+
 export type ApproxItem = { id: string; label: string; value: string; note?: string }
 
 export type ApproxPanel = { el: HTMLElement; set(id: string, value: string): void }
@@ -18,7 +20,7 @@ export function createApproxPanel(o: { doc: Document; prefix: string; title: str
   const values = new Map<string, HTMLElement>()
   for (const item of o.items) {
     const dt = doc.createElement('dt')
-    dt.textContent = item.label
+    setRichText(dt, item.label)
     const dd = doc.createElement('dd')
     const v = doc.createElement('span')
     v.className = `${p}-approx-value`
@@ -27,7 +29,7 @@ export function createApproxPanel(o: { doc: Document; prefix: string; title: str
     if (item.note) {
       const n = doc.createElement('span')
       n.className = `${p}-approx-note`
-      n.textContent = ` ${item.note}`
+      setRichText(n, ` ${item.note}`)
       dd.appendChild(n)
     }
     list.append(dt, dd)

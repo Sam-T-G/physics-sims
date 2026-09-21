@@ -3,7 +3,7 @@ import { createButton, createCheckpoint, createLinkedEquation, createSlider, typ
 import { createPlot2d } from '@lib/render'
 import { gsap } from 'gsap'
 import { CAMERA_SCENES, FLUX_COPY } from '../content'
-import type { Sim1Physics } from '../physics'
+import { UNIFORM_E, type Sim1Physics } from '../physics'
 import type { Sim1Render } from '../render/index'
 import type { Readout } from './beat5'
 import { sig3, tweenValue, waitClick, type Run } from '../flow'
@@ -33,16 +33,15 @@ export function createBeat4(o: {
     doc,
     prefix: p,
     label: 'Flux through a flat loop',
+    // Φ = E A cos θ with the live numbers; θ is the angle between E and n̂ (next line).
     parts: [
       { id: 'phi', text: 'Φ' },
       ' = ',
       { id: 'E', text: 'E', tip: FLUX_COPY.tips.E },
-      ' · ',
+      ' × ',
       { id: 'A', text: 'A', tip: FLUX_COPY.tips.A },
-      ' · ',
+      ' × ',
       { id: 'cos', text: 'cos θ', tip: FLUX_COPY.tips.cos },
-      '   ',
-      { id: 'n', text: 'n̂', tip: FLUX_COPY.tips.n },
     ],
     onFocus: id => {
       nudge?.kill()
@@ -51,13 +50,19 @@ export function createBeat4(o: {
       v.tiltOffset = 0
       v.areaScale = 1
       v.lineOpacity = 0.6
-      v.nFlip = 0
       if (reduced() || !id) return
       if (id === 'cos') nudge = run(() => gsap.to(v, { tiltOffset: 8, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' }))
       if (id === 'A') nudge = run(() => gsap.to(v, { areaScale: 1.15, duration: 0.6, yoyo: true, repeat: -1, ease: 'sine.inOut' }))
       if (id === 'E') nudge = run(() => gsap.to(v, { lineOpacity: 1, duration: 0.5, yoyo: true, repeat: -1, ease: 'sine.inOut' }))
-      if (id === 'n') v.nFlip = 1
     },
+  })
+  // θ is measured from n̂. Tapping n̂ really flips it (in the physics), so Φ flips sign with it.
+  const nEq = createLinkedEquation({
+    doc,
+    prefix: p,
+    label: 'How θ is measured',
+    parts: ['θ = the angle between E and ', { id: 'n', text: 'n̂', tip: FLUX_COPY.tips.n }],
+    onFocus: id => loop.set({ flipped: id === 'n' }),
   })
   const tilt = createSlider({ doc, prefix: p, label: FLUX_COPY.tilt, min: 0, max: 180, step: 1, value: 0, format: v => `${v}°`, onInput: v => loop.set({ thetaDeg: v }) })
   const side = createSlider({ doc, prefix: p, label: FLUX_COPY.side, min: 0.3, max: 0.8, step: 0.01, value: 0.5, format: v => `${v.toFixed(2)} m on a side`, onInput: v => loop.set({ side: v }) })
@@ -69,11 +74,12 @@ export function createBeat4(o: {
   const bowlNote = doc.createElement('p')
   bowlNote.className = `${p}-note`
   bowlNote.textContent = FLUX_COPY.bowlNote
-  const nSlider = createSlider({ doc, prefix: p, label: FLUX_COPY.n, min: 1, max: 5, step: 1, value: 3, format: v => `${v} per cube edge, ${6 * v * v} triangles`, onInput: v => physics.bowl.set({ n: v }) })
-  const zSlider = createSlider({ doc, prefix: p, label: FLUX_COPY.z, min: -0.6, max: -0.05, step: 0.01, value: -0.3, format: v => `z = ${v.toFixed(2)} m`, onInput: v => physics.bowl.set({ z: v }) })
+  const nSlider = createSlider({ doc, prefix: p, label: FLUX_COPY.n, min: 1, max: 5, step: 1, value: 3, format: v => `${6 * v * v} patches`, onInput: v => physics.bowl.set({ n: v }) })
+  // Deepest point stays inside even the coarsest bowl (its bottom face sits at 1/√3 ≈ 0.577 m).
+  const zSlider = createSlider({ doc, prefix: p, label: FLUX_COPY.z, min: -0.55, max: -0.05, step: 0.01, value: -0.3, format: v => `${Math.abs(v).toFixed(2)} m below the rim`, onInput: v => physics.bowl.set({ z: v }) })
   const plot = createPlot2d({ doc, prefix: p, xLabel: 'patches per edge', yLabel: 'Φ (N·m²/C)', title: 'Patch sum against the exact value' })
   const bowlEls = [bowlNote, nSlider.el, zSlider.el, plot.el]
-  panel.append(eq.el, tilt.el, side.el, startBtn, checkpoint.el, moreBtn, bundleBtn, bowlBtn, ...bowlEls)
+  panel.append(eq.el, nEq.el, tilt.el, side.el, startBtn, checkpoint.el, moreBtn, bundleBtn, bowlBtn, ...bowlEls)
 
   let done = false
   let flowId = 0
@@ -89,6 +95,8 @@ export function createBeat4(o: {
     tilt.el.hidden = next !== 'loop'
     side.el.hidden = next !== 'loop'
     eq.el.hidden = next !== 'loop'
+    nEq.el.hidden = next !== 'loop'
+    if (next !== 'loop') nEq.focus(null)
     if (next === 'bowl') show(...bowlEls)
     else hide(...bowlEls)
   }
@@ -97,6 +105,9 @@ export function createBeat4(o: {
     await waitClick(startBtn)
     if (id !== flowId) return
     startBtn.hidden = true
+    // The reveals assume n̂ unflipped: clear it and set the n̂ line aside until both loop questions are done.
+    nEq.focus(null)
+    nEq.el.hidden = true
     readout.hide()
     const said = await checkpoint.ask({ kind: 'slider', question: FLUX_COPY.predict.question, min: 0, max: 180, step: 1, initial: 0, format: v => `${v}°` })
     if (id !== flowId) return
@@ -122,6 +133,7 @@ export function createBeat4(o: {
     }, reduced(), alive(id))
     if (id !== flowId) return
     checkpoint.reveal(FLUX_COPY.mcqDone, 'right')
+    nEq.el.hidden = false
     bundleBtn.hidden = false
     await waitClick(bundleBtn)
     if (id !== flowId) return
@@ -189,6 +201,7 @@ export function createBeat4(o: {
       panel.hidden = true
       readout.hide()
       eq.focus(null)
+      nEq.focus(null)
     },
     update() {
       if (panel.hidden || readout.isHidden()) return
@@ -196,23 +209,27 @@ export function createBeat4(o: {
       let sub = ''
       if (part === 'loop') {
         const phi = loop.flux()
+        const between = loop.flipped ? 180 - loop.thetaDeg : loop.thetaDeg
         main = `Φ = ${sig3(Math.abs(phi) < 1e-9 ? 0 : phi)} N·m²/C`
-        sub = `${loop.linesThrough()} lines through the loop`
+        sub = `${loop.linesThrough()} of the drawn lines poke through${loop.flipped ? ', with the normal arrow flipped' : ''}`
         eq.setTerm('phi', `${sig3(Math.abs(phi) < 1e-9 ? 0 : phi)} N·m²/C`)
+        eq.setTerm('E', `${UNIFORM_E} N/C`)
         eq.setTerm('A', `${sig3(loop.area())} m²`)
-        eq.setTerm('cos', `cos ${Math.round(loop.thetaDeg)}°`)
+        eq.setTerm('cos', `cos ${Math.round(between)}°`)
       } else if (part === 'bundle') {
         const fl = physics.bundle.fluxes()
         const rays = physics.bundle.raysThrough()
         main = `near Φ = ${sig3(fl.near)}, far Φ = ${sig3(fl.far)} N·m²/C`
-        sub = `${rays.near} rays through the near loop, ${rays.far} through the far one`
+        sub = `all ${rays.near} bright lines go through both loops`
       } else {
         const bw = physics.bowl
         main = `Patch sum = ${sig3(bw.centroidSum())} N·m²/C`
-        sub = `exact = ${sig3(bw.exact())} N·m²/C`
+        sub = `exact for the smooth bowl = ${sig3(bw.smoothExact())} N·m²/C`
         const key = `${bw.n}|${bw.z}`
         if (key !== lastPlot) {
-          const exact = bw.exact()
+          // The flat line is the exact flux through the smooth bowl the patches approximate; it does not
+          // depend on the patch count, and the sums walk toward it.
+          const exact = bw.smoothExact()
           plot.set([{ x: 1, y: exact }, { x: 5, y: exact }], bw.series().map(pt => ({ ...pt, label: pt.x === bw.n ? 'now' : '' })))
           lastPlot = key
         }
