@@ -1,0 +1,433 @@
+/* Everything scoped under .sim01. No bare element selectors, no global class names. Tokens come from lib/tokens.css.
+   Two surfaces: the lab (canvas, rail, readout) and the page (the card, a cool paper sheet in a serif). */
+.sim01 {
+  position: relative;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--ps-bg);
+  color: var(--ps-fg);
+  font-family: var(--ps-sans);
+  font-size: var(--ps-text-md);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+.sim01 [hidden] { display: none !important; } /* the hidden attribute wins over any display rule below */
+.sim01 .sim01-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none; /* one-finger orbit must not scroll the page */
+}
+.sim01 .sim01-notice {
+  position: absolute;
+  inset: auto 0 0 0;
+  margin: 0;
+  padding: var(--ps-space-4) var(--ps-space-6);
+  background: var(--ps-panel);
+  color: var(--ps-panel-fg);
+  font-family: var(--ps-serif);
+  font-size: var(--ps-text-lg);
+}
+
+/* Rail: a vertical strip of ticks on the left edge. The current tick is long and bright; reached ticks can be tapped. */
+.sim01 .sim01-rail {
+  position: absolute;
+  left: max(4px, env(safe-area-inset-left, 0px));
+  top: 25%; /* the centre of the region the card leaves visible on a phone */
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sim01 .sim01-tick {
+  appearance: none;
+  margin: 0;
+  padding: 7px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ps-fg);
+  cursor: pointer;
+}
+.sim01 .sim01-tick::before {
+  content: '';
+  display: block;
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.26;
+  transition: width 0.25s ease, opacity 0.25s ease;
+}
+.sim01 .sim01-tick-reached::before { opacity: 0.6; }
+.sim01 .sim01-tick-current::before { width: 28px; height: 3px; opacity: 1; }
+.sim01 .sim01-tick:disabled { cursor: default; }
+
+/* Readout: the live number, over the scene. */
+.sim01 .sim01-readout {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  right: 14px;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ps-bg) 72%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sim01 .sim01-readout-main { font-size: 1.25rem; font-weight: 500; }
+.sim01 .sim01-readout-sub { font-size: var(--ps-text-sm); color: var(--ps-muted); }
+
+/* Card: the page laid over the lab. A bottom sheet on phones, a right column on wide screens. */
+.sim01 .sim01-card {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  max-height: 50dvh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px max(20px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+  border-radius: 20px 20px 0 0;
+  background: var(--ps-panel);
+  color: var(--ps-panel-fg);
+  box-shadow: 0 -12px 40px rgba(6, 12, 24, 0.35);
+  font-family: var(--ps-serif);
+  outline: none;
+}
+.sim01 .sim01-prompt {
+  margin: 0;
+  font-style: italic;
+  font-size: 1.375rem;
+  line-height: 1.22;
+  letter-spacing: -0.005em;
+  max-width: 24em;
+}
+.sim01 .sim01-reveal {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sim01 .sim01-kicker {
+  margin: 0;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-family: var(--ps-sans);
+  font-size: var(--ps-text-sm);
+  color: var(--ps-panel-muted);
+}
+.sim01 .sim01-kicker-label { font-weight: 600; color: var(--ps-panel-fg); }
+.sim01 .sim01-body {
+  margin: 0;
+  max-width: 34em;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+.sim01 .sim01-anchor {
+  margin: 0;
+  font-family: var(--ps-sans);
+  font-size: 0.75rem;
+  color: var(--ps-panel-muted);
+}
+.sim01 .sim01-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  font-family: var(--ps-sans);
+}
+.sim01 .sim01-back,
+.sim01 .sim01-next {
+  appearance: none;
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.sim01 .sim01-back {
+  border: 1px solid var(--ps-hairline);
+  background: transparent;
+  color: var(--ps-panel-fg);
+}
+.sim01 .sim01-next {
+  border: 0;
+  padding-inline: 26px;
+  background: var(--ps-panel-fg);
+  color: var(--ps-panel);
+}
+.sim01 .sim01-back:disabled,
+.sim01 .sim01-next:disabled { opacity: 0.35; cursor: default; }
+
+/* Tool belt: earned items as chips at the top of the page; one opens at a time. */
+.sim01 .sim01-belt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--ps-sans);
+}
+.sim01 .sim01-belt-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.sim01 .sim01-belt-row::-webkit-scrollbar { display: none; }
+.sim01 .sim01-chip {
+  appearance: none;
+  flex: none;
+  padding: 6px 12px;
+  border: 1px solid var(--ps-hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ps-panel-fg);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sim01 .sim01-chip[aria-expanded='true'] { background: var(--ps-panel-fg); color: var(--ps-panel); }
+.sim01 .sim01-belt-detail {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ps-panel-fg) 7%, transparent);
+  font-size: var(--ps-text-sm);
+}
+.sim01 .sim01-belt-detail-name { font-weight: 600; }
+.sim01 .sim01-belt-detail-eq { font-family: var(--ps-serif); font-size: 1.125rem; }
+.sim01 .sim01-belt-jump {
+  appearance: none;
+  justify-self: start;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ps-panel-fg);
+  font: inherit;
+  font-weight: 500;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.sim01 .sim01-tick:focus-visible,
+.sim01 .sim01-back:focus-visible,
+.sim01 .sim01-next:focus-visible,
+.sim01 .sim01-chip:focus-visible,
+.sim01 .sim01-belt-jump:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+@media (min-width: 900px) {
+  .sim01 .sim01-card {
+    left: auto;
+    top: 20px;
+    right: 20px;
+    bottom: auto;
+    box-sizing: border-box;
+    width: 440px;
+    max-height: calc(100dvh - 40px);
+    padding: 22px 26px;
+    border-radius: 20px;
+  }
+  .sim01 .sim01-readout { right: 476px; }
+  .sim01 .sim01-prompt { font-size: 1.625rem; }
+  .sim01 .sim01-rail { top: 50%; left: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sim01 .sim01-tick::before { transition: none; }
+}
+
+/* Stage 3: per-beat panels inside the card (tables, plots, checkpoints, controls). */
+.sim01 .sim01-hidden { display: none !important; }
+.sim01 .sim01-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: var(--ps-sans);
+}
+.sim01 .sim01-note {
+  margin: 0;
+  font-family: var(--ps-serif);
+  font-size: 1rem;
+  line-height: 1.45;
+  max-width: 34em;
+}
+.sim01 .sim01-btn {
+  appearance: none;
+  align-self: flex-start;
+  min-height: 40px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.sim01 .sim01-btn-primary { border: 0; background: var(--ps-panel-fg); color: var(--ps-panel); }
+.sim01 .sim01-btn-quiet { border: 1px solid var(--ps-hairline); background: transparent; color: var(--ps-panel-fg); }
+.sim01 .sim01-btn:disabled { opacity: 0.35; cursor: default; }
+
+.sim01 .sim01-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--ps-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.sim01 .sim01-table th,
+.sim01 .sim01-table td {
+  padding: 6px 8px 6px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--ps-hairline);
+}
+.sim01 .sim01-table th { font-weight: 600; color: var(--ps-panel-muted); }
+.sim01 .sim01-table td:nth-child(2),
+.sim01 .sim01-table td:nth-child(4) { font-weight: 600; }
+
+.sim01 .sim01-plot { width: 100%; max-width: 360px; height: auto; display: block; }
+.sim01 .sim01-plot-axes { fill: none; stroke: var(--ps-panel-muted); stroke-width: 1; }
+.sim01 .sim01-plot-series { fill: none; stroke: var(--ps-panel-fg); stroke-width: 2; }
+.sim01 .sim01-plot-mark { fill: var(--ps-pos); stroke: var(--ps-panel); stroke-width: 1.5; }
+.sim01 .sim01-plot-marklabel { font-size: 11px; fill: var(--ps-panel-fg); }
+.sim01 .sim01-plot-label,
+.sim01 .sim01-plot-tick,
+.sim01 .sim01-plot-title { font-size: 10px; fill: var(--ps-panel-muted); }
+
+/* Checkpoints */
+.sim01 .sim01-check { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--ps-panel-fg) 6%, transparent); }
+.sim01 .sim01-check-q { margin: 0; font-family: var(--ps-serif); font-size: 1.0625rem; line-height: 1.4; }
+.sim01 .sim01-check-body { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sim01 .sim01-check-opt {
+  appearance: none;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--ps-hairline);
+  border-radius: 999px;
+  background: var(--ps-panel);
+  color: var(--ps-panel-fg);
+  font: inherit;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+.sim01 .sim01-check-opt-picked { background: var(--ps-panel-fg); color: var(--ps-panel); }
+.sim01 .sim01-check-opt-wrong { text-decoration: line-through; opacity: 0.55; }
+.sim01 .sim01-check-opt:disabled { cursor: default; }
+.sim01 .sim01-check-slider { flex: 1 1 160px; accent-color: var(--ps-panel-fg); }
+.sim01 .sim01-check-value { flex: 1 0 100%; font-variant-numeric: tabular-nums; font-weight: 600; }
+.sim01 .sim01-check-commit {
+  appearance: none;
+  min-height: 40px;
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ps-panel-fg);
+  color: var(--ps-panel);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.sim01 .sim01-check-reveal { margin: 0; font-family: var(--ps-serif); line-height: 1.45; padding-top: 4px; border-top: 1px solid var(--ps-hairline); }
+.sim01 .sim01-check-reveal-right { color: var(--ps-panel-fg); }
+.sim01 .sim01-check-reveal-wrong { color: var(--ps-panel-fg); }
+
+/* Controls */
+.sim01 .sim01-slider { display: flex; flex-direction: column; gap: 4px; font-size: var(--ps-text-sm); }
+.sim01 .sim01-slider-head { display: flex; justify-content: space-between; gap: 8px; }
+.sim01 .sim01-slider-label { font-weight: 600; }
+.sim01 .sim01-slider-value { font-variant-numeric: tabular-nums; color: var(--ps-panel-muted); }
+.sim01 .sim01-slider-input { width: 100%; accent-color: var(--ps-panel-fg); }
+.sim01 .sim01-seg { display: flex; flex-direction: column; gap: 6px; font-size: var(--ps-text-sm); }
+.sim01 .sim01-seg-label { font-weight: 600; }
+.sim01 .sim01-seg-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.sim01 .sim01-seg-btn {
+  appearance: none;
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid var(--ps-hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ps-panel-fg);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.sim01 .sim01-seg-btn[aria-pressed='true'] { background: var(--ps-panel-fg); color: var(--ps-panel); }
+.sim01 .sim01-seg-btn:disabled { opacity: 0.35; cursor: default; }
+.sim01 .sim01-callback,
+.sim01 .sim01-play { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; border-top: 1px solid var(--ps-hairline); }
+.sim01 .sim01-list { margin: 0; padding-left: 1.1em; font-size: var(--ps-text-sm); font-variant-numeric: tabular-nums; }
+.sim01 .sim01-readout-caption { display: block; margin-top: 4px; font-family: var(--ps-serif); font-style: italic; font-size: var(--ps-text-sm); color: var(--ps-fg); }
+.sim01 .sim01-readout { max-width: min(60vw, 320px); }
+.sim01 .sim01-btn:focus-visible,
+.sim01 .sim01-check-opt:focus-visible,
+.sim01 .sim01-check-commit:focus-visible,
+.sim01 .sim01-seg-btn:focus-visible,
+.sim01 .sim01-slider-input:focus-visible,
+.sim01 .sim01-check-slider:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* Stage 4-5: multi-select and compass checkpoints, linked equations, the approximation panel. */
+.sim01 .sim01-check-opt-right { border-color: var(--ps-panel-fg); }
+.sim01 .sim01-check-reasons { margin: 4px 0 0; padding-left: 1.1em; flex: 1 0 100%; font-family: var(--ps-serif); font-size: var(--ps-text-sm); line-height: 1.45; }
+.sim01 .sim01-check-compass { display: grid; grid-template-columns: repeat(3, 48px); gap: 6px; }
+.sim01 .sim01-check-dir {
+  appearance: none;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--ps-hairline);
+  border-radius: 12px;
+  background: var(--ps-panel);
+  color: var(--ps-panel-fg);
+  font: inherit;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+.sim01 .sim01-check-dir:disabled { cursor: default; opacity: 0.6; }
+.sim01 .sim01-check-dir.sim01-check-opt-picked { background: var(--ps-panel-fg); color: var(--ps-panel); opacity: 1; }
+.sim01 .sim01-eq { display: flex; flex-direction: column; gap: 4px; }
+.sim01 .sim01-eq-line { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 4px; font-family: var(--ps-serif); font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.sim01 .sim01-eq-op { color: var(--ps-panel-muted); }
+.sim01 .sim01-eq-term {
+  appearance: none;
+  padding: 2px 6px;
+  border: 0;
+  border-bottom: 2px solid var(--ps-hairline);
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--ps-panel-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.sim01 .sim01-eq-term[aria-pressed='true'] { background: color-mix(in srgb, var(--ps-pos) 22%, transparent); border-bottom-color: var(--ps-pos); }
+.sim01 .sim01-eq-tip { margin: 0; font-family: var(--ps-sans); font-size: var(--ps-text-sm); color: var(--ps-panel-muted); }
+.sim01 .sim01-approx { font-family: var(--ps-sans); font-size: var(--ps-text-sm); border-top: 1px solid var(--ps-hairline); padding-top: 8px; }
+.sim01 .sim01-approx-summary { cursor: pointer; font-weight: 600; color: var(--ps-panel-muted); }
+.sim01 .sim01-approx-list { margin: 8px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; }
+.sim01 .sim01-approx-list dt { font-weight: 600; }
+.sim01 .sim01-approx-list dd { margin: 0; font-variant-numeric: tabular-nums; }
+.sim01 .sim01-approx-note { color: var(--ps-panel-muted); }
+.sim01 .sim01-eq-term:focus-visible,
+.sim01 .sim01-check-dir:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* Stage 6: legend for the slice plane, end card. */
+.sim01 .sim01-legend { display: flex; align-items: center; gap: 8px; font-family: var(--ps-sans); font-size: 0.75rem; color: var(--ps-panel-muted); font-variant-numeric: tabular-nums; }
+.sim01 .sim01-legend-bar { flex: 1; height: 10px; border-radius: 5px; background: linear-gradient(90deg, var(--ps-neg), var(--ps-surface), var(--ps-pos)); }
+.sim01 .sim01-plot-hot .sim01-plot-series { stroke: var(--ps-pos); stroke-width: 3; }
+.sim01 .sim01-endcard { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px solid var(--ps-hairline); }
+.sim01 .sim01-endcard .sim01-list { font-family: var(--ps-serif); font-size: 1rem; line-height: 1.45; }

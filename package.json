@@ -1,0 +1,35 @@
+{
+  "name": "physics-sims",
+  "version": "1.0.0",
+  "description": "Interactive 3D physics simulations for Physics 4B (E&M). Honors contract, RCC Fall 2026.",
+  "scripts": {
+    "dev": "vite --config apps/01-electrostatics/vite.config.ts",
+    "build": "vite build --config apps/01-electrostatics/vite.config.ts",
+    "preview": "vite preview --config apps/01-electrostatics/vite.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.5.1",
+      "onFail": "download"
+    }
+  },
+  "type": "module",
+  "dependencies": {
+    "gsap": "^3.15.0",
+    "three": "^0.186.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1"
+  },
+  "private": true
+}
