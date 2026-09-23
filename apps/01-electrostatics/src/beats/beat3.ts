@@ -60,6 +60,7 @@ export function createBeat3(o: {
   stayed.textContent = FIELD_COPY.stayed
   const legend = doc.createElement('div')
   legend.className = `${p}-legend`
+  legend.setAttribute('role', 'group')
   legend.setAttribute('aria-label', 'Arrow color shows field strength on a log scale')
   const legendBar = doc.createElement('div')
   legendBar.className = `${p}-legend-bar`

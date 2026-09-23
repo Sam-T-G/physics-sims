@@ -10,6 +10,8 @@ export type SceneCtx = {
   arrows: ArrowFactory
   colors: SceneColors
   doc: Document
+  /** Flipped by the chrome from prefers-reduced-motion; scenes skip decorative pulses while set. */
+  motion: { reduced: boolean }
 }
 
 export type Scene = {

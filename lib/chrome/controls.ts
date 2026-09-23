@@ -35,9 +35,12 @@ export function createSlider(o: {
   input.step = String(o.step)
   input.value = String(o.value)
   out.textContent = o.format(o.value)
+  input.setAttribute('aria-valuetext', o.format(o.value))
   input.addEventListener('input', () => {
     const v = Number(input.value)
-    out.textContent = o.format(v)
+    const text = o.format(v)
+    out.textContent = text
+    input.setAttribute('aria-valuetext', text)
     o.onInput(v)
   })
   const head = doc.createElement('span')
@@ -48,7 +51,9 @@ export function createSlider(o: {
     el: wrap,
     set(v) {
       input.value = String(v)
-      out.textContent = o.format(v)
+      const text = o.format(v)
+      out.textContent = text
+      input.setAttribute('aria-valuetext', text)
     },
     value: () => Number(input.value),
     disable(on) {

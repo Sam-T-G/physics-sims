@@ -61,7 +61,7 @@ export function createBeat4(o: {
     doc,
     prefix: p,
     label: 'How θ is measured',
-    parts: ['θ = the angle between E and ', { id: 'n', text: 'n̂', tip: FLUX_COPY.tips.n }],
+    parts: ['θ = the angle between E', ' and ', { id: 'n', text: 'n̂', tip: FLUX_COPY.tips.n }],
     onFocus: id => loop.set({ flipped: id === 'n' }),
   })
   const tilt = createSlider({ doc, prefix: p, label: FLUX_COPY.tilt, min: 0, max: 180, step: 1, value: 0, format: v => `${v}°`, onInput: v => loop.set({ thetaDeg: v }) })

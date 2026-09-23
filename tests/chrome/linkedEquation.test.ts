@@ -46,3 +46,23 @@ describe('linked equation terms', () => {
     expect(b.getAttribute('aria-pressed')).toBe('false')
   })
 })
+
+describe('linked equation wrapping', () => {
+  it('glues each operator to the term after it, and keeps explicit groups whole', () => {
+    const eq = createLinkedEquation({
+      doc: document,
+      prefix: 't',
+      parts: [{ id: 'F', text: 'F' }, ' = ', { id: 'k', text: 'k' }, ' × ', { group: ['|', { id: 'a', text: 'a' }, ' × ', { id: 'b', text: 'b' }, '|'] }, ' ÷ ', { id: 'r', text: 'r²' }],
+      onFocus: () => {},
+    })
+    const line = eq.el.querySelector('.t-eq-line')!
+    expect(line.getAttribute('role')).toBe('group')
+    // Top level: F, (= k), (× |a × b|), (÷ r²)
+    const top = [...line.children]
+    expect(top.map(c => c.className)).toEqual(['t-eq-term', 't-eq-group', 't-eq-group', 't-eq-group'])
+    expect(top[1]!.textContent).toBe(' = k')
+    expect(top[2]!.querySelectorAll('.t-eq-group').length).toBe(1) // the explicit |a × b| group, nested
+    expect(top[2]!.textContent).toBe(' × |a × b|')
+    expect(top[3]!.textContent).toBe(' ÷ r²')
+  })
+})

@@ -12,7 +12,7 @@ import {
   type Shells,
   type Stage,
   type SurfaceMesh,
-} from '@lib/render'
+ isWideLayout } from '@lib/render'
 import { MAX_SUBDIVISION, type Sim1Physics } from '../physics'
 import { createPendulumScene } from './scenes/pendulum'
 import { createPairScene } from './scenes/pair'
@@ -24,7 +24,7 @@ import type { Scene, SceneCtx } from './scenes/types'
 
 export type SceneName = 'pendulum' | 'pair' | 'coulomb' | 'field' | 'spheres' | 'flux' | 'gauss' | 'symmetry'
 
-export type SceneColors = { bg: string; pos: string; neg: string; shell: string; surface: string; line: string; fg: string; magLo: string; magHi: string }
+export type SceneColors = { bg: string; pos: string; neg: string; shell: string; surface: string; line: string; fg: string; magLo: string; magMid: string; magHi: string }
 export type SceneEnv = { pixelRatio: number; document: Document }
 
 const MAX_FACES = 12 * MAX_SUBDIVISION * MAX_SUBDIVISION
@@ -49,6 +49,8 @@ export type Sim1Render = {
   /** Color every face by the sign and size of its flux (entry cool, exit warm). */
   setColoring(on: boolean): void
   layout(width: number, height: number): void
+  /** Decorative pulses stop while the student prefers reduced motion. */
+  setReducedMotion(on: boolean): void
   frame(): void
   dispose(): void
 }
@@ -59,7 +61,8 @@ export function createSim1Render(canvas: HTMLCanvasElement, physics: Sim1Physics
   if (!stage) return null
   const markers = createChargeMarkers({ pos: colors.pos, neg: colors.neg }, env.document)
   const arrows = createArrows(env.document)
-  const sceneCtx: SceneCtx = { physics, markers, arrows, colors, doc: env.document }
+  const motion = { reduced: false }
+  const sceneCtx: SceneCtx = { physics, markers, arrows, colors, doc: env.document, motion }
   const scenes = {
     pendulum: createPendulumScene(sceneCtx),
     pair: createPairScene(sceneCtx),
@@ -202,10 +205,15 @@ export function createSim1Render(canvas: HTMLCanvasElement, physics: Sim1Physics
       stage.resize(width, height)
       sphereLines.setPixelRatio(env.pixelRatio)
       gaussLines.setPixelRatio(env.pixelRatio)
-      const wide = width >= 900
+      // Column layout (card on the right) on wide screens and on landscape phones; sheet layout otherwise.
+      // The chrome toggles the matching class from the same predicate.
+      const wide = isWideLayout(width, height)
       const x = wide ? 220 : 0
       const y = wide ? 0 : Math.round(height * 0.24)
       stage.camera.setViewOffset(width, height, x, y, width, height)
+    },
+    setReducedMotion(on) {
+      motion.reduced = on
     },
     frame() {
       sync()

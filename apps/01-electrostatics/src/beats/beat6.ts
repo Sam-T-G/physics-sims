@@ -69,11 +69,18 @@ export function createBeat6(o: { doc: Document; prefix: string; physics: Sim1Phy
   })
   const legend = doc.createElement('div')
   legend.className = `${p}-legend`
+  legend.setAttribute('role', 'group')
   legend.setAttribute('aria-label', 'Surface color shows how strong E is')
   const legendMin = doc.createElement('span')
   const legendBar = doc.createElement('div')
   legendBar.className = `${p}-legend-bar`
   const legendMax = doc.createElement('span')
+  // Two ticks bracket the range the sphere is using right now on the fixed scale.
+  const nowLo = doc.createElement('i')
+  nowLo.className = `${p}-legend-now`
+  const nowHi = doc.createElement('i')
+  nowHi.className = `${p}-legend-now`
+  legendBar.append(nowLo, nowHi)
   legend.append(legendMin, legendBar, legendMax)
   const legendCaption = doc.createElement('p')
   legendCaption.className = `${p}-legend-caption`
@@ -168,6 +175,13 @@ export function createBeat6(o: { doc: Document; prefix: string; physics: Sim1Phy
       if (panel.hidden || readout.isHidden()) return
       const [min, max] = sy.faceMagnitudes(mags)
       const spread = max === 0 ? 0 : (max - min) / max
+      {
+        const [lo, hi] = sy.colorRange()
+        const span = Math.log(hi) - Math.log(lo)
+        const at = (v: number) => `${(100 * Math.min(1, Math.max(0, (Math.log(Math.max(v, lo)) - Math.log(lo)) / span))).toFixed(1)}%`
+        nowLo.style.left = at(min)
+        nowHi.style.left = at(max)
+      }
       const main = formatFlux(sy.flux())
       const kq = K_E * 1e-9 // kq/r² on the unit sphere
       const sub = sy.dipole

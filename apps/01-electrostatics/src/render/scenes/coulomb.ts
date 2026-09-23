@@ -45,7 +45,7 @@ export function createCoulombScene(ctx: SceneCtx): Scene & { highlight(h: Coulom
       m2.setPosition(p2.x, p2.y, p2.z)
       m1.setSign(c.q1 >= 0 ? 1 : -1)
       m2.setSign(c.q2 >= 0 ? 1 : -1)
-      const pulse = 1 + 0.18 * Math.sin(t * 6)
+      const pulse = ctx.motion.reduced ? 1 : 1 + 0.18 * Math.sin(t * 6)
       m1.object.scale.setScalar(hl === 'q1' ? pulse : 1)
       m2.object.scale.setScalar(hl === 'q2' ? pulse : 1)
       m3.object.visible = Boolean(p3)

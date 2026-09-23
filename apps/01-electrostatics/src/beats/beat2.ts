@@ -27,11 +27,9 @@ export function createBeat2(o: { doc: Document; prefix: string; physics: Sim1Phy
       { id: 'F', text: 'F' },
       ' = ',
       { id: 'k', text: '8.99 × 10⁹', tip: COULOMB_COPY.tips.k },
-      ' × |',
-      { id: 'q1', text: 'q₁', tip: COULOMB_COPY.tips.q1 },
       ' × ',
-      { id: 'q2', text: 'q₂', tip: COULOMB_COPY.tips.q2 },
-      '| ÷ ',
+      { group: ['|', { id: 'q1', text: 'q₁', tip: COULOMB_COPY.tips.q1 }, ' × ', { id: 'q2', text: 'q₂', tip: COULOMB_COPY.tips.q2 }, '|'] },
+      ' ÷ ',
       { id: 'r2', text: 'r²', tip: COULOMB_COPY.tips.r2 },
     ],
     onFocus: id => {

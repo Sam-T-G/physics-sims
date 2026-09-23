@@ -24,7 +24,7 @@ export type Plot2dOptions = {
 const NS = 'http://www.w3.org/2000/svg'
 const W = 320
 const H = 180
-const PAD = { left: 44, right: 12, top: 18, bottom: 34 }
+const PAD = { left: 46, right: 12, top: 22, bottom: 34 }
 
 export function createPlot2d(opts: Plot2dOptions): Plot2d {
   const { doc, prefix: p } = opts
@@ -59,10 +59,20 @@ export function createPlot2d(opts: Plot2dOptions): Plot2d {
   xMaxText.setAttribute('y', String(H - PAD.bottom + 14))
   xMaxText.setAttribute('x', String(W - PAD.right))
   xMaxText.setAttribute('text-anchor', 'end')
+  const xMidText = mk('text', 'tick')
+  xMidText.setAttribute('y', String(H - PAD.bottom + 14))
+  xMidText.setAttribute('x', String((PAD.left + W - PAD.right) / 2))
+  xMidText.setAttribute('text-anchor', 'middle')
   const yMaxText = mk('text', 'tick')
   yMaxText.setAttribute('x', String(PAD.left - 6))
   yMaxText.setAttribute('y', String(PAD.top + 4))
   yMaxText.setAttribute('text-anchor', 'end')
+  const yMidText = mk('text', 'tick')
+  yMidText.setAttribute('x', String(PAD.left - 6))
+  yMidText.setAttribute('y', String((PAD.top + H - PAD.bottom) / 2 + 4))
+  yMidText.setAttribute('text-anchor', 'end')
+  const gridMid = mk('path', 'grid')
+  gridMid.setAttribute('d', `M${PAD.left},${(PAD.top + H - PAD.bottom) / 2} H${W - PAD.right}`)
   if (opts.title) {
     // Top right, so it never collides with the y-axis caption at the top left.
     const t = mk('text', 'title')
@@ -93,7 +103,9 @@ export function createPlot2d(opts: Plot2dOptions): Plot2d {
       path.setAttribute('d', series.map((q, i) => `${i ? 'L' : 'M'}${sx(q.x).toFixed(1)},${sy(q.y).toFixed(1)}`).join(''))
       xMinText.textContent = fmt(xMin)
       xMaxText.textContent = fmt(xMax)
+      xMidText.textContent = fmt((xMin + xMax) / 2)
       yMaxText.textContent = fmt(yMax)
+      yMidText.textContent = fmt(yMax / 2)
       marksGroup.replaceChildren()
       for (const m of marks) {
         const c = doc.createElementNS(NS, 'circle')

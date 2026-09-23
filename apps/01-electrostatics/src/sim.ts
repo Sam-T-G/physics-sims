@@ -5,6 +5,7 @@ import './styles.css'
 import { meta } from './sim.meta'
 import { createSim1Physics } from './physics'
 import { createSim1Render, type Sim1Render } from './render/index'
+import { isWideLayout } from '@lib/render'
 import { createSim1Chrome, type Sim1Chrome } from './chrome'
 
 // Layer 3 (chrome) owns this file. It and chrome.ts are the only places gsap is imported in this app.
@@ -49,7 +50,8 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
       surface: token('--ps-surface', '#c9d6ea'),
       line: token('--ps-line', '#f3d9a4'),
       fg: token('--ps-fg', '#eef1f6'),
-      magLo: token('--ps-mag-lo', '#56688c'),
+      magLo: token('--ps-mag-lo', '#3e4c6a'),
+      magMid: token('--ps-mag-mid', '#8e97ad'),
       magHi: token('--ps-mag-hi', '#fff0c2'),
     },
     { pixelRatio: Math.min(window.devicePixelRatio, 2), document: el.ownerDocument },
@@ -66,8 +68,13 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
     return
   }
 
-  // Size from the mount element, never window. LineMaterial.resolution joins this handler at stage 3.
-  const resize = () => render.layout(el.clientWidth, el.clientHeight)
+  // Size from the mount element, never window. The layout class and the camera offset come from one predicate.
+  const resize = () => {
+    const w = el.clientWidth
+    const h = el.clientHeight
+    el.classList.toggle('sim01-wide', isWideLayout(w, h))
+    render.layout(w, h)
+  }
   const ro = new ResizeObserver(resize)
   ro.observe(el)
   resize()
@@ -109,7 +116,7 @@ export function unmount(el: HTMLElement): void {
   m.render?.dispose()
   if (import.meta.env.DEV) delete (el as unknown as Record<string, unknown>)['__sim01']
   for (const node of m.created) node.remove()
-  el.classList.remove('sim01')
+  el.classList.remove('sim01', 'sim01-wide')
   el.removeAttribute('aria-label')
   instances.delete(el)
 }

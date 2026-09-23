@@ -1,32 +1,64 @@
 /* Shared design tokens. Defined once, used by every sim. Namespaced --ps- so a hub can merge four stylesheets.
-   Two surfaces: the lab (deep navy, where the 3D scene lives) and the page (cool paper laid over it, where the
-   reading happens). Orange and blue are reserved for + and −, paired with a glyph, never color alone. */
+   Two surfaces: the lab (deep navy, where the 3D scene and its readout live) and the page (cool paper laid
+   over it, where the reading happens). Orange and blue are reserved for + and −, paired with a glyph, never
+   color alone, and never used as decoration on the page. */
 :root {
+  /* Lab */
   --ps-bg: #101a2e;
   --ps-fg: #eef1f6;
-  --ps-muted: rgba(238, 241, 246, 0.62);
+  --ps-fg-2: rgba(238, 241, 246, 0.78); /* 9.7:1 on the lab */
+  /* Page */
   --ps-panel: #eef1f6;
-  --ps-panel-fg: #14213d;
-  --ps-panel-muted: #5b6478;
-  --ps-hairline: rgba(20, 33, 61, 0.18);
+  --ps-ink: #14213d; /* 14.1:1 on paper */
+  --ps-ink-2: #46506a; /* 7.1:1 on paper: every small label */
+  --ps-tint-1: #e1e5eb; /* ink 6%: contained panels */
+  --ps-tint-2: #d4d9e2; /* ink 10%: hover, tracks */
+  --ps-hairline: rgba(20, 33, 61, 0.18); /* quiet buttons and separators only */
+  --ps-ink-dim: rgba(20, 33, 61, 0.55); /* disabled text, never element opacity */
+  /* Older names, kept as aliases so nothing else has to change */
+  --ps-panel-fg: var(--ps-ink);
+  --ps-panel-muted: var(--ps-ink-2);
+  --ps-muted: var(--ps-fg-2);
+  /* Scene */
   --ps-pos: #ff7a59;
   --ps-neg: #58a6ff;
   --ps-shell: #9fb4d8;
   --ps-surface: #c9d6ea;
   --ps-line: #f3d9a4;
-  /* "How strong" ramp for field magnitude: dim slate to bright cream, kept apart from the ± colors. */
-  --ps-mag-lo: #56688c;
+  /* "How strong" ramp for field magnitude, three stops so the mid range stays readable. */
+  --ps-mag-lo: #3e4c6a;
+  --ps-mag-mid: #8e97ad;
   --ps-mag-hi: #fff0c2;
+  /* Type: serif to read and for math, sans to operate and scan. System fonts only. */
   --ps-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "Noto Serif", Georgia, serif;
   --ps-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --ps-font: var(--ps-sans);
   --ps-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  --ps-text-sm: 0.875rem;
-  --ps-text-md: 1rem;
-  --ps-text-lg: 1.25rem;
-  --ps-space-1: 0.25rem;
-  --ps-space-2: 0.5rem;
-  --ps-space-3: 0.75rem;
-  --ps-space-4: 1rem;
-  --ps-space-6: 1.5rem;
+  --ps-text-xs: 0.75rem; /* 12: the floor */
+  --ps-text-sm: 0.8125rem; /* 13 */
+  --ps-text-md: 0.875rem; /* 14 */
+  --ps-text-ui: 0.9375rem; /* 15: primary controls */
+  --ps-text-body: 1.0625rem; /* 17 */
+  --ps-text-eq: 1.125rem; /* 18 */
+  --ps-text-lg: 1.25rem; /* 20 */
+  /* Spacing: 4 inside a pair, 8 inside a group, 16 between groups, 24 above a footer. */
+  --ps-space-1: 4px;
+  --ps-space-2: 8px;
+  --ps-space-3: 12px;
+  --ps-space-4: 16px;
+  --ps-space-6: 24px;
+  /* Radius: tabs, grid cells, contained panels, pills, the card. */
+  --ps-radius-tab: 6px;
+  --ps-radius-cell: 8px;
+  --ps-radius-panel: 12px;
+  --ps-radius-card: 20px;
+  --ps-radius-pill: 999px;
+  /* Motion */
+  --ps-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ps-t-state: 120ms;
+  --ps-t-enter: 200ms;
+  --ps-t-sheet: 280ms;
+  /* Focus rings: a paper gap then ink on the page; a lab gap then light on the lab. */
+  --ps-ring: 0 0 0 2px var(--ps-panel), 0 0 0 4px var(--ps-ink);
+  --ps-ring-lab: 0 0 0 2px var(--ps-bg), 0 0 0 4px var(--ps-fg);
 }

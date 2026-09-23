@@ -48,7 +48,9 @@ export function createFieldScene(ctx: SceneCtx): Scene & {
   const mag = new Float64Array(SLICE_N * SLICE_N)
   // new Color('#hex') lands in linear working space; undo that so the lerp runs in sRGB, the same
   // interpolation the CSS legend gradient uses, then convert once for the instance color buffer.
+  // Three-stop "how strong" ramp (lerped in sRGB): the middle stop keeps the common mid-range readable.
   const lo = new THREE.Color(colors.magLo).convertLinearToSRGB()
+  const mid = new THREE.Color(colors.magMid).convertLinearToSRGB()
   const hi = new THREE.Color(colors.magHi).convertLinearToSRGB()
   const c = new THREE.Color()
   let range = { logMin: 0, logMax: 1 }
@@ -64,7 +66,8 @@ export function createFieldScene(ctx: SceneCtx): Scene & {
         continue
       }
       const u = (m - range.logMin) / span
-      c.copy(lo).lerp(hi, u)
+      if (u < 0.5) c.copy(lo).lerp(mid, u * 2)
+      else c.copy(mid).lerp(hi, (u - 0.5) * 2)
       // Instance colors are stored linear; the lerp above was in sRGB, so convert exactly once.
       c.convertSRGBToLinear()
       slice.setInstance(k, { x: pos[3 * k]!, y: pos[3 * k + 1]!, z: pos[3 * k + 2]! }, { x: dir[3 * k]!, y: dir[3 * k + 1]!, z: dir[3 * k + 2]! }, c)
@@ -106,7 +109,7 @@ export function createFieldScene(ctx: SceneCtx): Scene & {
       probe.position.set(f.probe.x, f.probe.y, f.probe.z)
       const F = f.probeForce()
       const E = f.probeField()
-      const pulse = 1 + 0.25 * Math.sin(t * 6)
+      const pulse = ctx.motion.reduced ? 1 : 1 + 0.25 * Math.sin(t * 6)
       if (show.contrib) {
         // Tip to tail on one linear scale: each charge's piece in turn, then the white sum from the probe.
         // Linear, so the chain really does end on the tip of the sum.

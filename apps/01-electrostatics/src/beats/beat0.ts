@@ -51,7 +51,7 @@ export function createBeat0(o: { doc: Document; prefix: string; physics: Sim1Phy
       const pd = physics.pendulum
       const deg = (pd.theta() * 180) / Math.PI
       const main = `${deg.toFixed(1)}° off vertical`
-      const sub = pd.touching() ? `they swung in until they touched: pull ${sig3(pd.force())} N, and the balls pressing on each other hold them there` : `${pd.opposite ? 'pull' : 'push'} between them: ${sig3(pd.force())} N, ${(pd.separation() * 100).toFixed(0)} cm apart`
+      const sub = pd.touching() ? `they swung in and touched: pull ${sig3(pd.force())} N, and the balls pressing together hold them` : `${pd.opposite ? 'pull' : 'push'} between them: ${sig3(pd.force())} N, ${(pd.separation() * 100).toFixed(0)} cm apart`
       const key = main + sub
       if (key !== last) {
         readout.set(main, sub)

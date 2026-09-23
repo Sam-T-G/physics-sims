@@ -56,6 +56,8 @@ export type Checkpoint = {
   clear(): void
 }
 
+let checkSeq = 0
+
 export function createCheckpoint(o: { doc: Document; prefix: string }): Checkpoint {
   const { doc, prefix: p } = o
   const root = doc.createElement('section')
@@ -67,15 +69,43 @@ export function createCheckpoint(o: { doc: Document; prefix: string }): Checkpoi
   body.className = `${p}-check-body`
   const out = doc.createElement('p')
   out.className = `${p}-check-reveal`
-  out.setAttribute('aria-live', 'polite')
+  // Not a live region: when the student answered from inside this box, focus moves to the answer (which
+  // reads it once). A live region on top would read it twice.
   out.hidden = true
-  root.append(q, body, out)
+  q.id = `${p}-check-q-${++checkSeq}`
+  body.setAttribute('role', 'group')
+  body.setAttribute('aria-labelledby', q.id)
+  // For answers given without focus in the box (Safari does not focus a clicked button; a trackpad user with
+  // VoiceOver), the reveal is announced through this hidden live region instead of a focus move.
+  const said = doc.createElement('span')
+  said.className = `${p}-sr`
+  said.setAttribute('aria-live', 'polite')
+  root.append(q, body, out, said)
+  /** True when the student's focus was inside this checkpoint at the moment they answered. */
+  let focusWanted = false
+  const noteFocus = () => {
+    focusWanted = root.contains(doc.activeElement)
+  }
+  /** Read the reveal: move focus if the student was in here and still is (or nowhere), else announce it. */
+  const readOut = (text: string) => {
+    const active = doc.activeElement
+    if (focusWanted && (root.contains(active) || active === doc.body || active === null)) {
+      out.tabIndex = -1
+      out.focus({ preventScroll: true })
+    } else {
+      said.textContent = ''
+      said.textContent = plainText(text)
+    }
+    focusWanted = false
+  }
 
   const reset = () => {
     body.replaceChildren()
     out.hidden = true
     out.textContent = ''
     out.className = `${p}-check-reveal`
+    said.textContent = ''
+    focusWanted = false
   }
 
   function ask(spec: ChoiceSpec): Promise<string>
@@ -109,12 +139,15 @@ export function createCheckpoint(o: { doc: Document; prefix: string }): Checkpoi
         commit.className = `${p}-check-commit`
         commit.textContent = spec.commitLabel ?? 'Lock it in'
         commit.addEventListener('click', () => {
+          noteFocus()
           commit.disabled = true
           buttons.forEach(({ opt, b }) => {
             b.disabled = true
-            const right = picked.has(opt.id) === opt.correct
-            b.classList.toggle(`${p}-check-opt-right`, opt.correct)
-            b.classList.toggle(`${p}-check-opt-wrong`, !right)
+            const was = picked.has(opt.id)
+            // right: correct and picked; missed: correct but left out; wrong: picked but not correct.
+            b.classList.toggle(`${p}-check-opt-right`, opt.correct && was)
+            b.classList.toggle(`${p}-check-opt-missed`, opt.correct && !was)
+            b.classList.toggle(`${p}-check-opt-wrong`, !opt.correct && was)
           })
           const list = doc.createElement('ul')
           list.className = `${p}-check-reasons`
@@ -149,6 +182,7 @@ export function createCheckpoint(o: { doc: Document; prefix: string }): Checkpoi
           b.textContent = glyph[c]
           b.setAttribute('aria-label', name[c])
           b.addEventListener('click', () => {
+            noteFocus()
             buttons.forEach(x => (x.disabled = true))
             b.classList.add(`${p}-check-opt-picked`)
             resolve(c)
@@ -167,16 +201,20 @@ export function createCheckpoint(o: { doc: Document; prefix: string }): Checkpoi
           b.className = `${p}-check-opt`
           setRichText(b, opt.label)
           b.addEventListener('click', () => {
+            noteFocus()
             if (spec.answer !== undefined && opt.id !== spec.answer) {
               b.classList.add(`${p}-check-opt-wrong`)
-              b.disabled = true
               out.hidden = false
               out.className = `${p}-check-reveal ${p}-check-reveal-wrong`
               setRichText(out, opt.reason ?? 'Not that one.')
+              // Focus lands on the reason before the button goes away from the tab order.
+              readOut(opt.reason ?? 'Not that one.')
+              b.disabled = true
               return
             }
             buttons.forEach(x => (x.disabled = true))
             b.classList.add(`${p}-check-opt-picked`)
+            if (spec.answer !== undefined) b.classList.add(`${p}-check-opt-right`)
             resolve(opt.id)
           })
           body.appendChild(b)
@@ -193,15 +231,21 @@ export function createCheckpoint(o: { doc: Document; prefix: string }): Checkpoi
       input.step = String(spec.step)
       input.value = String(spec.initial)
       input.setAttribute('aria-label', plainText(spec.question))
+      input.setAttribute('aria-valuetext', spec.format(spec.initial))
       const val = doc.createElement('output')
       val.className = `${p}-check-value`
       val.textContent = spec.format(spec.initial)
-      input.addEventListener('input', () => (val.textContent = spec.format(Number(input.value))))
+      input.addEventListener('input', () => {
+        const text = spec.format(Number(input.value))
+        val.textContent = text
+        input.setAttribute('aria-valuetext', text)
+      })
       const commit = doc.createElement('button')
       commit.type = 'button'
       commit.className = `${p}-check-commit`
       commit.textContent = spec.commitLabel ?? 'Lock it in'
       commit.addEventListener('click', () => {
+        noteFocus()
         input.disabled = true
         commit.disabled = true
         resolve(Number(input.value))
@@ -218,9 +262,10 @@ export function createCheckpoint(o: { doc: Document; prefix: string }): Checkpoi
       out.hidden = false
       out.className = `${p}-check-reveal ${p}-check-reveal-${tone}`
       setRichText(out, text)
-      // The pressed option just got disabled, which drops focus to the body; keep it on the answer.
-      out.tabIndex = -1
-      out.focus({ preventScroll: true })
+      // The pressed option got disabled, which drops focus to the body. If the student was in here, put
+      // focus on the answer (which also reads it once); otherwise announce it. On re-entry from Back or the
+      // rail nothing was answered, so focus stays where it is and nothing is read.
+      readOut(text)
     },
     clear() {
       reset()

@@ -6,6 +6,9 @@
 import { setRichText } from './richText'
 
 export type EqTerm = { id: string; text: string; tip?: string }
+/** Terms and operators kept on one line, e.g. the two charges between absolute-value bars. */
+export type EqGroup = { group: readonly EqPart[] }
+export type EqPart = EqTerm | string | EqGroup
 
 export type LinkedEquation = {
   el: HTMLElement
@@ -14,12 +17,13 @@ export type LinkedEquation = {
   focus(id: string | null): void
 }
 
-export function createLinkedEquation(o: { doc: Document; prefix: string; label?: string; parts: readonly (EqTerm | string)[]; onFocus: (id: string | null) => void }): LinkedEquation {
+export function createLinkedEquation(o: { doc: Document; prefix: string; label?: string; parts: readonly EqPart[]; onFocus: (id: string | null) => void }): LinkedEquation {
   const { doc, prefix: p } = o
   const root = doc.createElement('div')
   root.className = `${p}-eq`
-  const line = doc.createElement('p')
+  const line = doc.createElement('div')
   line.className = `${p}-eq-line`
+  line.setAttribute('role', 'group')
   if (o.label) line.setAttribute('aria-label', o.label)
   const tip = doc.createElement('p')
   tip.className = `${p}-eq-tip`
@@ -37,13 +41,20 @@ export function createLinkedEquation(o: { doc: Document; prefix: string; label?:
     o.onFocus(id)
   }
 
-  for (const part of o.parts) {
+  const add = (parent: HTMLElement, part: EqPart) => {
     if (typeof part === 'string') {
       const span = doc.createElement('span')
       span.className = `${p}-eq-op`
       setRichText(span, part)
-      line.appendChild(span)
-      continue
+      parent.appendChild(span)
+      return
+    }
+    if ('group' in part) {
+      const g = doc.createElement('span')
+      g.className = `${p}-eq-group`
+      for (const inner of part.group) add(g, inner)
+      parent.appendChild(g)
+      return
     }
     const b = doc.createElement('button')
     b.type = 'button'
@@ -63,7 +74,18 @@ export function createLinkedEquation(o: { doc: Document; prefix: string; label?:
       if (e.pointerType === 'mouse' && pinned === null && active === part.id) setActive(null)
     })
     terms.set(part.id, { b, tip: part.tip })
-    line.appendChild(b)
+    parent.appendChild(b)
+  }
+  // An operator sticks to the term after it, so a wrapped equation breaks only before an operator
+  // ("= 8.99 × 10⁹" / "× |q₁ × q₂|" / "÷ r²"), the way a textbook continues a line.
+  const parts = o.parts
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]!
+    const following = parts[i + 1]
+    if (typeof part === 'string' && following !== undefined && typeof following !== 'string') {
+      add(line, { group: [part, following] })
+      i++
+    } else add(line, part)
   }
   root.append(line, tip)
   return {

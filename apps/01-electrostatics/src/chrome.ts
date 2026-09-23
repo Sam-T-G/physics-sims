@@ -45,7 +45,13 @@ export function createSim1Chrome(o: { el: HTMLElement; render: Sim1Render; physi
   readoutCaption.className = `${P}-readout-caption`
   readoutCaption.hidden = true
   readoutEl.append(readoutMain, readoutSub, readoutCaption)
-  el.appendChild(readoutEl)
+  // Screen readers get the number once it settles (sliders change it every frame), not every frame.
+  const announce = doc.createElement('span')
+  announce.className = `${P}-sr`
+  announce.setAttribute('aria-live', 'polite')
+  el.appendChild(announce)
+  let announceTimer: ReturnType<typeof setTimeout> | null = null
+  let announced = ''
   const readout: Readout = {
     show: () => (readoutEl.hidden = false),
     hide: () => (readoutEl.hidden = true),
@@ -57,6 +63,14 @@ export function createSim1Chrome(o: { el: HTMLElement; render: Sim1Render; physi
     set(main, sub) {
       readoutMain.textContent = main
       readoutSub.textContent = sub
+      const text = `${main}. ${sub}`
+      if (text === announced) return
+      if (announceTimer !== null) clearTimeout(announceTimer)
+      announceTimer = setTimeout(() => {
+        announceTimer = null
+        announced = text
+        announce.textContent = readoutEl.hidden ? '' : text
+      }, 1200)
     },
   }
 
@@ -232,7 +246,9 @@ export function createSim1Chrome(o: { el: HTMLElement; render: Sim1Render; physi
   mods.b6 = createBeat6(common)
   chapters.el.panelSlot.append(mods.b0.panel, mods.b1.panel, mods.b2.panel, mods.b3.panel, mods.b3b.panel, mods.b4.panel, mods.b5.panel, mods.b6.panel)
   const approx = createApproxPanel({ doc, prefix: P, title: APPROX_COPY.title, items: APPROX_COPY.items })
-  chapters.el.card.insertBefore(approx.el, chapters.el.nav)
+  chapters.el.body.appendChild(approx.el)
+  // The readout is the card's top strip: it belongs to the lab (navy) but sits where the eye already is.
+  chapters.el.head.appendChild(readoutEl)
 
   rig.goToPreset(CAMERA_SCENES.pendulum, { cut: true })
   chapters.goTo(0)
@@ -240,6 +256,7 @@ export function createSim1Chrome(o: { el: HTMLElement; render: Sim1Render; physi
   return {
     chapters,
     update(deltaSeconds) {
+      render.setReducedMotion(reduced())
       mods.b0?.update()
       mods.b1?.update()
       mods.b2?.update()
@@ -255,6 +272,8 @@ export function createSim1Chrome(o: { el: HTMLElement; render: Sim1Render; physi
       chapters.destroy()
       readoutEl.remove()
       approx.el.remove()
+      if (announceTimer !== null) clearTimeout(announceTimer)
+      announce.remove()
       gsap.killTweensOf(flash)
     },
   }

@@ -54,6 +54,7 @@ export function createSymmetryScene(ctx: SceneCtx): Scene & { setReveal(on: bool
   const mags = new Float64Array(physics.symmetry.mesh.faceCount)
   // Same "how strong" ramp as the chapter 3 arrows (lerped in sRGB, converted once).
   const lo = new THREE.Color(colors.magLo).convertLinearToSRGB()
+  const mid = new THREE.Color(colors.magMid).convertLinearToSRGB()
   const hi = new THREE.Color(colors.magHi).convertLinearToSRGB()
   let key = ''
   let pulse = false
@@ -88,7 +89,9 @@ export function createSymmetryScene(ctx: SceneCtx): Scene & { setReveal(on: bool
           surface.refill(sy.mesh, (f, out) => {
             const m = mags[f]!
             const u = m > 0 ? Math.min(1, Math.max(0, (Math.log(m) - l0) / span)) : 0
-            out.copy(lo).lerp(hi, u).convertSRGBToLinear()
+            if (u < 0.5) out.copy(lo).lerp(mid, u * 2)
+            else out.copy(mid).lerp(hi, (u - 0.5) * 2)
+            out.convertSRGBToLinear()
           })
         }
         key = k
@@ -97,7 +100,7 @@ export function createSymmetryScene(ctx: SceneCtx): Scene & { setReveal(on: bool
       m1.setPosition(cs[0]!.pos.x, cs[0]!.pos.y, cs[0]!.pos.z)
       m2.object.visible = cs.length > 1
       if (cs[1]) m2.setPosition(cs[1].pos.x, cs[1].pos.y, cs[1].pos.z)
-      if (pulse) surface.mesh.scale.setScalar(1 + 0.03 * Math.sin(t * 5))
+      surface.mesh.scale.setScalar(pulse && !ctx.motion.reduced ? 1 + 0.03 * Math.sin(t * 5) : 1)
     },
     dispose() {
       surface.dispose()
