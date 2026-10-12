@@ -137,7 +137,9 @@ export function createTimeModule(handlers: { onBattery(batteryIn: boolean): void
       nowI.textContent = reading(cap.Ic, 'A')
       nowV.textContent = reading(cap.Vc, 'V')
       const settled = !finite || c.t > 5 * tau
-      clockEl.textContent = !finite
+      clockEl.textContent = tau === 0
+        ? 'Only plain wire is in the capacitor\'s path (R = 0 Ω), so the capacitor jumped straight to its final voltage.'
+        : !finite
         ? 'No closed path runs through the capacitor, so the capacitor voltage stays constant.'
         : `t = ${sig3(c.t)} s = ${sig3(c.t / tau)} τ, with τ = ${sig3(tau)} s.${settled ? ' After 5τ the capacitor voltage is within 1% of the final value.' : ''}`
     },

@@ -266,6 +266,7 @@
 
 /* ---------- capacitor bits ---------- */
 .sim02 .sim02-tile-T { --tile-bg: #e3f5ea; --tile-ink: #2f7a54; }
+.sim02 .sim02-tile-Q { --tile-bg: #e2f4f7; --tile-ink: #24707f; }
 .sim02 .sim02-chip-art.is-cap { display: flex; justify-content: center; align-items: center; gap: 5px; }
 .sim02 .sim02-chip-art.is-cap::before { content: ''; position: absolute; left: 4px; right: 4px; top: 11px; height: 3px; border-radius: 2px; background: #b9b3d6; }
 .sim02 .sim02-chip-art.is-cap span { position: relative; width: 6px; height: 22px; border-radius: 4px; background: var(--c-butter); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.08); }
@@ -525,6 +526,168 @@
 .sim02 .sim02-approx summary { font-weight: 900; cursor: pointer; }
 .sim02 .sim02-approx ul { margin: 10px 0 0; padding-left: 18px; color: var(--c-ink-2); display: grid; gap: 6px; }
 
+/* ---------- guided tour ---------- */
+.sim02 .sim02-tour-start {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin: 0 0 18px;
+  padding: 10px 18px 10px 14px;
+  border: 0; border-radius: var(--r-pill);
+  background: var(--c-butter);
+  color: var(--c-ink);
+  font-size: 15px; font-weight: 900;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 10px 22px -12px rgba(194, 140, 0, 0.8);
+  cursor: pointer;
+  transition: scale 0.35s var(--spring), translate 0.35s var(--spring), background 0.15s;
+}
+.sim02 .sim02-tour-start:hover { translate: 0 -2px; background: #ffd970; }
+.sim02 .sim02-tour-start:active { scale: 0.96; }
+.sim02 .sim02-tour-start svg, .sim02 .sim02-guide svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+.sim02 .sim02-guide {
+  position: relative;
+  margin: 0 0 18px;
+  padding: 14px 18px 14px;
+  border-radius: 28px;
+  background: linear-gradient(165deg, #fff8e3 0%, #fff4fb 55%, #f3f0ff 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 0 0 2px rgba(255, 209, 92, 0.55), 0 16px 34px -22px rgba(74, 58, 140, 0.55);
+}
+.sim02 .sim02-guide-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sim02 .sim02-guide-chapter { margin: 0; font-size: 13px; font-weight: 900; color: var(--c-grape-deep); }
+.sim02 .sim02-guide-leave {
+  border: 0; background: none; padding: 5px 10px; border-radius: var(--r-pill);
+  font-size: 12.5px; font-weight: 800; color: var(--c-ink-2); cursor: pointer;
+}
+.sim02 .sim02-guide-leave:hover { background: rgba(255, 255, 255, 0.8); }
+.sim02 .sim02-guide-map { display: flex; gap: 6px; margin: 8px 0 12px; padding: 0; list-style: none; }
+.sim02 .sim02-guide-map button {
+  display: grid; place-items: center;
+  width: 24px; height: 24px; padding: 0;
+  border: 0; border-radius: var(--r-pill);
+  background: transparent; cursor: pointer;
+  transition: width 0.45s var(--spring);
+}
+.sim02 .sim02-guide-map button span {
+  width: 10px; height: 10px; border-radius: var(--r-pill);
+  background: #ddd6f5;
+  transition: width 0.45s var(--spring), background 0.25s;
+}
+.sim02 .sim02-guide-map button:hover span { background: var(--c-butter); }
+.sim02 .sim02-guide-map button.is-past span { background: #9fd8b7; }
+.sim02 .sim02-guide-map button.is-here { width: 40px; }
+.sim02 .sim02-guide-map button.is-here span { width: 30px; background: var(--c-grape); }
+.sim02 .sim02-guide-title { margin: 0 0 8px; font-size: 21px; line-height: 1.2; font-weight: 900; color: var(--c-grape-deep); }
+.sim02 .sim02-guide-text p { margin: 0 0 8px; font-size: 15px; line-height: 1.5; max-width: 62ch; }
+.sim02 .sim02-guide-text .katex, .sim02 .sim02-guide-reveal .katex { font-size: 1.04em; }
+.sim02 .sim02-guide-eq {
+  margin: 4px 0 10px; padding: 10px 12px 8px;
+  border-radius: 18px; background: rgba(255, 255, 255, 0.92);
+  display: grid; justify-items: center; gap: 4px;
+  overflow-x: auto;
+}
+.sim02 .sim02-guide-eq .katex { font-size: 1.22em; }
+.sim02 .sim02-guide-eq figcaption {
+  padding: 2px 9px; border-radius: var(--r-pill);
+  background: var(--c-tint); color: var(--c-grape-deep);
+  font-size: 12px; font-weight: 900; rotate: -2deg;
+}
+.sim02 .sim02-guide-badge {
+  display: inline-block; margin-right: 8px; padding: 2px 9px;
+  border-radius: var(--r-pill); background: var(--c-grape); color: #fff;
+  font-size: 11.5px; font-weight: 900; vertical-align: 1px;
+}
+.sim02 .sim02-guide-q { margin: 6px 0 10px; }
+.sim02 .sim02-guide-qtext { margin: 0 0 8px; font-size: 15.5px; font-weight: 800; line-height: 1.45; }
+.sim02 .sim02-guide-opts { display: grid; gap: 7px; }
+.sim02 .sim02-guide-opt {
+  position: relative;
+  padding: 10px 14px; text-align: left;
+  border: 0; border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: inset 0 0 0 2px var(--c-tint-2);
+  font-size: 14.5px; font-weight: 800; cursor: pointer;
+  transition: background 0.15s, box-shadow 0.2s, opacity 0.3s, translate 0.3s var(--spring);
+}
+.sim02 .sim02-guide-opt:hover:not(:disabled) { background: var(--c-butter-soft); translate: 2px 0; }
+.sim02 .sim02-guide-opt:disabled { cursor: default; }
+.sim02 .sim02-guide-opt.is-picked { background: var(--c-grape); color: #fff; box-shadow: none; }
+.sim02 .sim02-guide-opt.is-other { opacity: 0.55; }
+.sim02 .sim02-guide-opt.is-answer { opacity: 1; box-shadow: inset 0 0 0 3px #7fcf9f; }
+.sim02 .sim02-guide-opt.is-answer::after {
+  content: '✓'; position: absolute; right: 12px; top: 50%; translate: 0 -50%;
+  width: 22px; height: 22px; display: grid; place-items: center;
+  border-radius: 50%; background: #bfe8cf; color: #2f7a54; font-size: 13px; font-weight: 900;
+}
+.sim02 .sim02-guide-task {
+  display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px 10px;
+  margin: 6px 0 10px; padding: 10px 12px;
+  border-radius: 18px; background: rgba(255, 255, 255, 0.92);
+  box-shadow: inset 0 0 0 2px rgba(255, 209, 92, 0.7);
+}
+.sim02 .sim02-guide-task p { margin: 0; font-size: 14.5px; font-weight: 700; line-height: 1.45; }
+.sim02 .sim02-guide-taskicon {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--c-butter-soft); color: #7f5500;
+}
+.sim02 .sim02-guide-task[data-state="waiting"] .sim02-guide-taskicon { animation: sim02-breathe 1.6s ease-in-out infinite; }
+.sim02 .sim02-guide-task[data-state="done"] { box-shadow: inset 0 0 0 2px #9fd8b7; }
+.sim02 .sim02-guide-task[data-state="done"] .sim02-guide-taskicon { background: #bfe8cf; color: #2f7a54; }
+.sim02 .sim02-guide-bar { grid-column: 1 / -1; height: 8px; border-radius: var(--r-pill); background: var(--c-tint); overflow: hidden; }
+.sim02 .sim02-guide-bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #9fd8b7, #3f8a63); transition: width 0.25s linear; }
+.sim02 .sim02-guide-auto {
+  grid-column: 2; justify-self: start;
+  border: 0; background: none; padding: 4px 0;
+  font-size: 13px; font-weight: 800; color: var(--c-grape-deep);
+  text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: var(--c-tint-2);
+  cursor: pointer;
+}
+.sim02 .sim02-guide-auto:hover { text-decoration-color: var(--c-butter); }
+.sim02 .sim02-guide-reveal {
+  margin: 6px 0 10px; padding: 12px 14px 4px;
+  border-radius: 18px; background: rgba(255, 255, 255, 0.95);
+  box-shadow: inset 4px 0 0 #9fd8b7;
+}
+.sim02 .sim02-guide-reveal p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.5; }
+.sim02 .sim02-guide-verdict { display: flex; align-items: center; gap: 8px; font-weight: 900; }
+.sim02 .sim02-guide-verdict svg { width: 22px; height: 22px; padding: 3px; border-radius: 50%; }
+.sim02 .sim02-guide-verdict.is-right { color: #2f7a54; }
+.sim02 .sim02-guide-verdict.is-right svg { background: #bfe8cf; }
+.sim02 .sim02-guide-verdict.is-off { color: var(--c-grape-deep); }
+.sim02 .sim02-guide-verdict.is-off svg { background: var(--c-tint-2); }
+.sim02 .sim02-guide-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.sim02 .sim02-guide-count { font-size: 12.5px; font-weight: 800; color: var(--c-ink-2); }
+.sim02 .sim02-guide-back, .sim02 .sim02-guide-next {
+  padding: 9px 16px; border: 0; border-radius: var(--r-pill);
+  font-size: 14px; font-weight: 900; cursor: pointer;
+  transition: background 0.2s, color 0.2s, scale 0.3s var(--spring);
+}
+.sim02 .sim02-guide-back { background: none; color: var(--c-ink-2); box-shadow: inset 0 0 0 2px var(--c-tint-2); }
+.sim02 .sim02-guide-back:disabled { opacity: 0.4; cursor: default; }
+.sim02 .sim02-guide-next { background: rgba(255, 255, 255, 0.85); color: var(--c-ink-2); }
+.sim02 .sim02-guide-next.is-ready { background: var(--c-grape); color: #fff; box-shadow: 0 10px 20px -12px rgba(90, 77, 170, 0.9); }
+.sim02 .sim02-guide-back:active, .sim02 .sim02-guide-next:active { scale: 0.95; }
+
+/* While touring, the notebook shows only what the step is about. */
+.sim02.is-touring .sim02-head p,
+.sim02.is-touring .sim02-book,
+.sim02.is-touring .sim02-approx,
+.sim02.is-touring .sim02-battery:not(.is-spot),
+.sim02.is-touring .sim02-time:not(.is-spot),
+.sim02.is-touring .sim02-notes-head .sim02-small,
+.sim02.is-touring .sim02-eqs .sim02-row:not(.is-spot),
+.sim02.is-touring:not(.has-spot-rows) .sim02-notes-head,
+.sim02.is-touring:not(.has-spot-rows) .sim02-eqs { display: none; }
+.sim02.is-touring .sim02-head h1 { margin-bottom: 12px; }
+@keyframes sim02-glow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(255, 209, 92, 0.95), 0 8px 24px -10px rgba(74, 58, 140, 0.35); }
+  50% { box-shadow: 0 0 0 7px rgba(255, 209, 92, 0.35), 0 8px 24px -10px rgba(74, 58, 140, 0.35); }
+}
+.sim02.is-touring .sim02-hud.is-spot,
+.sim02.is-touring .sim02-battery.is-spot,
+.sim02.is-touring .sim02-time.is-spot,
+.sim02.is-touring .sim02-row.is-spot { animation: sim02-glow 2.6s ease-in-out infinite; }
+.sim02.is-touring .sim02-chip.is-spot { background: var(--c-butter-soft); box-shadow: 0 0 0 3px var(--c-butter); translate: 0 -3px; }
+.sim02.is-touring .sim02-label.is-spot { background: var(--c-butter-soft); }
+
 /* ---------- phones and narrow windows: the board stays pinned on top, the notebook scrolls under it ---------- */
 @media (max-width: 860px) {
   .sim02 {
@@ -589,6 +752,10 @@
   .sim02 .sim02-preview-pill { position: fixed; top: auto; bottom: calc(16px + env(safe-area-inset-bottom)); left: 50%; translate: -50% 6px; }
   .sim02.is-previewing .sim02-preview-pill { translate: -50% 0; }
   .sim02 .sim02-dock-hint .sim02-long { display: none; }
+  .sim02 .sim02-guide { padding: 12px 14px 12px; border-radius: 24px; }
+  .sim02 .sim02-guide-title { font-size: 19px; }
+  .sim02 .sim02-guide-text p, .sim02 .sim02-guide-reveal p { font-size: 14.5px; }
+  .sim02 .sim02-guide-map { gap: 3px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

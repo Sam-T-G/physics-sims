@@ -187,6 +187,24 @@ const clean = (x: number, eps: number) => (Math.abs(x) < eps ? 0 : x)
 /** The fixed stubs that belong to each branch (indices into WIRES). */
 const LANE_WIRES: Record<string, number[]> = { R2: [3, 8], R3: [5, 9], R4: [7, 11] }
 
+/**
+ * Two or three wire branches in parallel are ideal 0 Ω wires side by side: by symmetry they share the
+ * current evenly. The 0.1 µΩ stand-ins would instead split it by how many stand-in segments each branch
+ * routes through (5/8 and 3/8 for R₂ and R₃), which no real circuit rule says. Share it evenly, then
+ * rebuild the branch connectors from the branch currents: the stubs carry their own branch, the B and C
+ * verticals carry the branches below them (WIRES 4 and 10: R₃ + R₄; 6 and 12: R₄).
+ */
+function shareWireLanes(slots: Slots, readings: Partial<Record<SlotId, SlotReading>>, wireI: Float64Array, deadWire: Uint8Array) {
+  const wires = LANES.filter(id => slots[id]?.kind === 'wire' && readings[id])
+  if (wires.length < 2) return
+  const total = wires.reduce((s, id) => s + readings[id]!.I, 0)
+  for (const id of wires) readings[id] = { I: total / wires.length, V: 0, P: 0 }
+  const laneI = (id: SlotId) => readings[id]?.I ?? 0
+  for (const id of LANES) for (const k of LANE_WIRES[id]!) wireI[k] = deadWire[k] ? 0 : laneI(id)
+  wireI[4] = deadWire[4] ? 0 : laneI('R3') + laneI('R4'); wireI[10] = wireI[4]
+  wireI[6] = deadWire[6] ? 0 : laneI('R4'); wireI[12] = wireI[6]
+}
+
 export function solveBoard(input: BoardInput): BoardResult {
   const out = input.batteryIn === false
   // Switched out: no push, and a plain wire where the battery was (so no r either).
@@ -270,6 +288,7 @@ export function solveBoard(input: BoardInput): BoardResult {
     }
   }
 
+  if (sol.ok) shareWireLanes(slots, readings, wireI, deadWire)
   const Pemf = I * emf
   const Pr = I * I * r
   const Pload = clean(Pemf - Pr, REL_ZERO * Math.max(1, Pemf))
@@ -396,7 +415,10 @@ function solveRC(input: BoardInput): BoardResult {
   const test = boardElements(slots, 0, r, capId, { mode: 'source', V: 1 })
   const st = solveCircuit(NODE_COUNT, test.els)
   const Itest = st.ok ? -st.I[test.index[capId]!]! : 0
-  const Rth = Math.abs(Itest) < 1e-9 ? Infinity : -1 / Itest
+  const rawR = Math.abs(Itest) < 1e-9 ? Infinity : -1 / Itest
+  // A plain wire straight across the capacitor leaves only 0.1 µΩ stand-ins in its path: the true R is 0 Ω.
+  // The smallest real path on this board is r = 0.05 Ω, far above this cut.
+  const Rth = rawR < 1e-3 ? 0 : rawR
   const tau = Rth * C
   snapped = tau < INSTANT_TAU && Math.abs(Vc - Voc) > 0
   if (snapped) Vc = Voc
@@ -433,6 +455,7 @@ function solveRC(input: BoardInput): BoardResult {
     readings[id] = { I: Ik, V: Vk, P: part.kind === 'resistor' ? Ik * Ik * part.ohms : 0 }
   }
   if (steady) readings[capId] = { I: 0, V: Vc, P: 0 }
+  shareWireLanes(slots, readings, wireI, deadWire)
   const Vt = clean(emf - I * r, zeroV)
   const Pemf = I * emf
   const Pr = I * I * r
@@ -450,7 +473,7 @@ function solveRC(input: BoardInput): BoardResult {
       const loop = emf - I * r - read('R1').V - Vp - read('R5').V
       checks.push({ id: 'loop', eq: '10.5', label: 'ε − Ir − V₁ − V_P − V₅ = 0, right now', ok: closeV(loop, 0) })
     }
-    if (Number.isFinite(Rth)) checks.push({ id: 'rc', eq: '10.10', label: 'current into the capacitor = (V heading − V now)/R', ok: close(Ic, (Voc - Vc) / Rth, 1e-3) })
+    if (Number.isFinite(Rth) && Rth > 0) checks.push({ id: 'rc', eq: '10.10', label: 'current into the capacitor = (V heading − V now)/R', ok: close(Ic, (Voc - Vc) / Rth, 1e-3) })
     const heat = SLOT_IDS.reduce((s, id) => s + (slots[id]?.kind === 'resistor' ? readings[id]!.P : 0), 0) + Pr
     const sink = heat + Ic * Vc
     checks.push({ id: 'energy', eq: '9.12, 9.13', label: 'battery power = heat in every resistor + power going into the capacitor', ok: close(Pemf, sink, Math.max(1e-3, heat, Math.abs(Ic * Vc))) })

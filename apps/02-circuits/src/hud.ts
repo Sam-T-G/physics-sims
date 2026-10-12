@@ -7,7 +7,7 @@ import { sig3, exact, SUB } from './format'
 
 const SCALABLE = new Set(['A', 'V', 'W', 'C'])
 
-type Kind = 'I' | 'V' | 'R' | 'P' | 'T'
+type Kind = 'I' | 'V' | 'R' | 'P' | 'Q' | 'T'
 /** One tile: what it measures, its value, and a short note that names the component. */
 export type TileSpec = { kind: Kind; name: string; sym: string; value: number; unit: string; note: string; exact?: boolean }
 type Tile = { el: HTMLElement; name: HTMLElement; value: HTMLElement; unit: HTMLElement; note: HTMLElement; icon: HTMLElement; last: number | null; lastScale?: number; kind: Kind | null }
@@ -17,6 +17,7 @@ const ICON: Record<Kind, string> = {
   V: '<path d="M4 18h5V12h5V6h6"/><path d="M17 3l3 3-3 3"/>',
   R: '<path d="M2 12h4l2-4 3 8 3-8 3 8 2-4h3"/>',
   P: '<path d="M12 3c1 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-4 2-7 2 1 3 3 3 4 1-3 1-5 1-8z"/>',
+  Q: '<path d="M9 4v16M15 4v16M3 12h6M15 12h6"/>',
   T: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/>',
 }
 
@@ -40,7 +41,7 @@ export function specsFor(b: BoardResult, slots: Slots, focus: SlotId | null): { 
         tiles: [
           { kind: 'I', name: 'Current', sym: 'I', value: rd?.I ?? 0, unit: 'A', note: 'into the capacitor' },
           { kind: 'V', name: 'Voltage', sym: 'V_C', value: rd?.V ?? 0, unit: 'V', note: 'across the capacitor' },
-          { kind: 'R', name: 'Charge', sym: 'q', value: b.cap?.q ?? 0, unit: 'C', note: 'q = CV_C' },
+          { kind: 'Q', name: 'Charge', sym: 'q', value: b.cap?.q ?? 0, unit: 'C', note: 'stored on the plates' },
           { kind: 'T', name: 'Time constant', sym: 'τ', value: b.cap?.tau ?? Infinity, unit: 's', note: 'τ = RC' },
         ],
       }

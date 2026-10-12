@@ -141,6 +141,8 @@ const ROWS: Row[] = [
     html: ({ b }) => {
       const k = b.cap!
       if (!Number.isFinite(k.tau)) return eq('\\tau = RC') + say('An empty slot cuts the capacitor off from the battery, so the capacitor cannot charge or discharge.')
+      if (k.tau === 0) return eq('\\tau = RC') + eq(`\\tau = (${num('Rth', 0, 'Ω')})(${num('C', k.C, 'F', 'exact')}) = ${num('tau', 0, 's')}`, ' sim02-sub')
+        + say(`Only plain wire is in the capacitor's path, so ${m('R = 0\\,\\Omega')} and the capacitor jumps straight to its final voltage.`)
       return eq('\\tau = RC')
         + eq(`\\tau = (${num('Rth', k.Rth, 'Ω')})(${num('C', k.C, 'F', 'exact')}) = ${num('tau', k.tau, 's')}`, ' sim02-sub')
         + say(`${m('R')} is the total resistance the capacitor's current passes through, including the battery's ${m('r')}. A larger ${m('R')} or ${m('C')} makes the capacitor charge more slowly.`)
@@ -152,6 +154,7 @@ const ROWS: Row[] = [
       const k = c.b.cap!
       const t = c.rc!
       if (!Number.isFinite(k.tau)) return eq('I_C = 0') + say('No closed path runs through the capacitor.')
+      if (k.tau === 0) return eq('I_C = 0') + say(`With ${m('R = 0\\,\\Omega')} the capacitor reached its final voltage at once, so no current goes into the capacitor now.`)
       const tt = num('t', t.t, 's')
       const tauN = num('tau', k.tau, 's')
       const kind = rcCase(c)
@@ -177,7 +180,7 @@ const ROWS: Row[] = [
       const tt = num('t', t.t, 's')
       const tauN = num('tau', k.tau, 's')
       const V = `${m('V_C = q/C')}`
-      if (!Number.isFinite(k.tau)) return eq(`q = C V_C = (${num('C', k.C, 'F', 'exact')})(${num('Vc', k.Vc, 'V')}) = ${num('q', k.q, 'C')}`)
+      if (!Number.isFinite(k.tau) || k.tau === 0) return eq(`q = C V_C = (${num('C', k.C, 'F', 'exact')})(${num('Vc', k.Vc, 'V')}) = ${num('q', k.q, 'C')}`)
       if (kind === 'discharge') {
         return eq('q(t) = Q\\,e^{-t/\\tau}')
           + eq(`q = (${num('Q0', k.C * t.V0, 'C')})\\,e^{-${tt}/${tauN}} = ${num('q', k.q, 'C')}`, ' sim02-sub')

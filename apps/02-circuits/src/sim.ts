@@ -10,6 +10,8 @@ import { createScene, REST_Y, type PieceView, type Scene } from './scene'
 import { createPanel, type Panel } from './panel'
 import { createHud } from './hud'
 import { createTimeModule, type RcClock } from './timeModule'
+import { createGuide, type Guide } from './guide'
+import type { Action, GuideState, Setup, Spot } from './tour'
 import { relaxVoltage } from '@lib/physics'
 import { colorBands, BAND_HEX } from './colorCode'
 import { sig, sig3, exact, reading, SUB } from './format'
@@ -93,7 +95,9 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
       <header class="sim02-head">
         <h1>${meta.title}</h1>
         <p>Drag resistors, wires and a capacitor onto the board. Every number below is calculated from the circuit on the board, using the equations in OpenStax Chapter 10.</p>
+        <div class="sim02-tour-slot"></div>
       </header>
+      <div class="sim02-guide-slot"></div>
       <section class="sim02-battery" aria-label="Battery">
         <h2><span class="sim02-mini-batt" aria-hidden="true"></span>Battery</h2>
         <label class="sim02-slider"><span class="sim02-slider-name">Battery voltage (emf), <i>ε</i></span><output class="sim02-out" data-for="emf"></output>
@@ -114,7 +118,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
         <p class="sim02-small">Each button builds a worked example from the book and compares the book's answers with the sim's.</p>
         <div class="sim02-presets"></div>
         <div class="sim02-compare" hidden></div>
-        <button class="sim02-clear" type="button">Clear the board</button>
+        <button class="sim02-clear sim02-clear-board" type="button">Clear the board</button>
       </section>
       <details class="sim02-approx">
         <summary>Simplifications</summary>
@@ -162,6 +166,9 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
   let result: BoardResult = solveBoard({ emf, r, slots: {} })
   let preview = false
   let shown: Slots = {}
+  let guide: Guide | null = null
+  /** Slots the guided tour is pointing at: their sockets glow softly. */
+  const guideSpots = new Set<SlotId>()
   const timers = new Set<number>()
   const later = (ms: number, fn: () => void) => { const t = window.setTimeout(() => { timers.delete(t); fn() }, ms); timers.add(t) }
   const anims = new Set<{ stop(): void }>()
@@ -267,7 +274,12 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
     paintSlotButtons(slots)
     paintTray()
     hud.update(result, slots, selected ?? linked, opts.animate ?? true)
+    if (!opts.preview) guide?.update(guideState())
   }
+  const guideState = (): GuideState => ({
+    emf, r, slots: committedSlots(), batteryIn: clockRC.batteryIn, b: result, selected,
+    rc: result.cap ? { t: clockRC.t, tau: clockRC.tau, I0: clockRC.I0, V0: clockRC.V0, Voc: clockRC.Voc } : null,
+  })
   const commit = (animateNums = true) => apply(committedSlots(), { preview: false, animate: animateNums })
 
   const paintStatus = (slots: Slots) => {
@@ -417,6 +429,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
     } else {
       b.innerHTML = `<span class="sim02-chip-art is-wire" aria-hidden="true"><svg viewBox="0 0 60 24"><path d="M4 20 Q30 -6 56 20" /></svg></span><span class="sim02-chip-label">Wire<span class="sim02-sr">, 0 Ω</span></span>`
     }
+    b.dataset.part = item.part.kind === 'resistor' ? String(item.part.ohms) : item.part.kind === 'wire' ? 'wire' : 'cap'
     trayEl.appendChild(b)
     b.addEventListener('pointerdown', e => onChipDown(e, item.part, b))
     b.addEventListener('click', e => {
@@ -826,9 +839,83 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
     if (!reduce) run(animate(compare, { opacity: [0, 1], y: [8, 0] }, { duration: 0.4 }))
   }
   const onClear = () => { compare.hidden = true; loadSlots({}) }
-  $('.sim02-clear').addEventListener('click', onClear)
+  $('.sim02-clear-board').addEventListener('click', onClear)
   const onRecenter = () => sc.resetView()
   $('.sim02-recenter').addEventListener('click', onRecenter)
+
+  // ---------- guided tour ----------
+  const samePart = (a?: Part, b?: Part) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+  /** Move the board to a step's starting point, changing only the slots that differ. */
+  /** A part in hand goes back where it came from before the tour changes the board under it. */
+  const dropDrag = () => { if (drag) endDrag({ pointerId: drag.pointerId } as PointerEvent, true) }
+  const setupBoard = (su: Setup) => {
+    dropDrag()
+    endHold()
+    deselect()
+    compare.hidden = true
+    emf = su.emf
+    r = su.r
+    syncSliders()
+    clockRC.batteryIn = su.batteryIn ?? true
+    clockRC.speed = 1
+    let k = 0
+    for (const id of SLOT_IDS) {
+      const want = su.slots[id]
+      const p = pieces.get(id)
+      const have = p?.view.part
+      if (samePart(have, want)) continue
+      if (!want) { pieces.delete(id); poof(p!); continue }
+      if (p && have?.kind === 'resistor' && want.kind === 'resistor') { p.view.setOhms(want.ohms); squish(p, 0.8); jiggle(p, 0.06); continue }
+      if (p && have?.kind === 'capacitor' && want.kind === 'capacitor') { have.farads = want.farads; continue }
+      placeFromTray({ ...want }, id, reduce ? 0 : 140 + k++ * 130)
+    }
+    if (su.capV !== undefined) capV = su.capV
+    circuitKey = ''
+    commit()
+  }
+  const act = (a: Action) => {
+    dropDrag()
+    if ('place' in a) { placeFromTray({ ...a.part }, a.place); commit() }
+    else if ('remove' in a) removeFromSlot(a.remove)
+    else if ('dial' in a) {
+      const p = pieces.get(a.dial)
+      if (!p) return
+      const part = p.view.part
+      if (part.kind === 'resistor') p.view.setOhms(a.value)
+      else if (part.kind === 'capacitor') { capV *= part.farads / a.value; part.farads = a.value }
+      squish(p, 0.8)
+      jiggle(p, 0.06)
+      commit()
+      if (selected === a.dial) renderPop()
+    } else if ('r' in a) { r = a.r; syncSliders(); commit() }
+    else if ('battery' in a) { clockRC.batteryIn = a.battery; commit() }
+    else if ('select' in a) select(a.select)
+    else if ('fill' in a) { clockRC.speed = 25; timeMod.update(result.cap, clockRC) }
+  }
+  const spot = (sp: Spot | null) => {
+    guideSpots.clear()
+    for (const id of sp?.slots ?? []) guideSpots.add(id)
+    labelEls.forEach((l, id) => l.classList.toggle('is-spot', guideSpots.has(id)))
+    trayEl.querySelectorAll<HTMLElement>('.sim02-chip').forEach(c => c.classList.toggle('is-spot', !!sp?.chips?.includes(c.dataset.part!)))
+    hud.el.classList.toggle('is-spot', !!sp?.hud)
+    $('.sim02-battery').classList.toggle('is-spot', !!sp?.battery)
+    timeMod.el.classList.toggle('is-spot', !!sp?.time)
+    const rows = sp?.rows ?? []
+    el.querySelectorAll<HTMLElement>('.sim02-row').forEach(row => row.classList.toggle('is-spot', rows.some(id => row.classList.contains(`sim02-row-${id}`))))
+    el.classList.toggle('has-spot-rows', rows.length > 0)
+    if (sp?.battery) jiggleBattery()
+  }
+  const notebook = $<HTMLElement>('.sim02-notebook')
+  guide = createGuide({
+    state: guideState,
+    setup: setupBoard,
+    act,
+    spot,
+    touring: on => { el.classList.toggle('is-touring', on); notebook.scrollTop = 0 },
+    celebrate: () => { for (const id of guideSpots) if (pieces.has(id)) ringPulse(id) },
+  }, () => reduce)
+  $('.sim02-tour-slot').replaceWith(guide.startButton)
+  $('.sim02-guide-slot').replaceWith(guide.el)
 
   // ---------- layout ----------
   let portrait: boolean | null = null
@@ -868,6 +955,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
       if (!last || clockRC.t - last.t >= (5 * clockRC.tau) / 240) clockRC.trace.push({ t: clockRC.t, I: result.cap!.Ic, V: result.cap!.Vc })
       hud.update(result, shown, selected ?? linked, false, true)
       timeMod.update(result.cap, clockRC)
+      guide?.update(guideState())
       // the typeset equations re-render about 8 times a second, not every frame
       if (clock - lastPanelPaint > 120 || clockRC.t >= 6 * clockRC.tau) {
         lastPanelPaint = clock
@@ -914,6 +1002,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
       let goal = 0
       if (drag?.moved) goal = drag.lockSlot === id ? 0.85 : drag.near === id ? 0.45 : pieces.has(id) ? 0 : 0.16
       else if (holding) goal = 0.35 + 0.25 * Math.sin(clock / 260)
+      else if (guideSpots.has(id)) goal = 0.3 + 0.18 * Math.sin(clock / 300)
       else if (result.gaps.includes(id)) goal = 0.18 + 0.12 * Math.sin(clock / 400)
       const m = s.glow.material as THREE.MeshBasicMaterial
       m.opacity += (goal - m.opacity) * (1 - Math.exp(-dt * 12))
@@ -1005,6 +1094,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
       wrap.removeEventListener('pointercancel', onWrapUp)
       el.removeEventListener('keydown', onRootKey)
       for (const p of [...pieces.values(), ...loose]) p.view.dispose()
+      guide?.dispose()
       panel.dispose()
       hud.dispose()
       timeMod.dispose()
