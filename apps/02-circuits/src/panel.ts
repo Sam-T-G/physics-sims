@@ -225,7 +225,7 @@ const ROWS: Row[] = [
       const rd = b.slots[id]
       const n = m(`R_${id.slice(1)}`)
       if (part.kind === 'capacitor') return eq(`q = C V_C = (${num('C', part.farads, 'F', 'exact')})(${num('Vc', rd?.V ?? 0, 'V')}) = ${num('q', b.cap?.q ?? 0, 'C')}`)
-        + say('Charge on the capacitor, from the definition of capacitance in Section 10.5.')
+        + say('The charge on the capacitor, from the definition of capacitance (Eq 8.1, C = Q/V).')
       if (part.kind === 'wire') return eq(`${sym(id, 'V')} = ${sym(id, 'I')} \\times 0\\,\\Omega = 0\\,\\text{V}`) + say(`A wire in ${n} has 0 Ω, so the wire drops 0 V and makes no heat.`)
       if (!rd || !Number.isFinite(rd.I)) return eq(`${sym(id, 'V')} = ${sym(id, 'I')}\\,${sym(id)}`)
       return eq(`${sym(id, 'V')} = ${sym(id, 'I')}\\,${sym(id)} = (${num(`I-${id}`, rd.I, 'A')})(${ohmNum(slots, id)}) = ${num(`V-${id}`, rd.V, 'V')}`)
@@ -307,7 +307,7 @@ export function createPanel(onSymbol: (id: SlotId | null) => void): Panel {
           const id = partFor(c.slots, c.selected)
           const isC = id && c.slots[id]?.kind === 'capacitor'
           row.head.innerHTML = !id ? 'Voltage and power of one resistor' : isC ? 'Charge on the capacitor' : `Voltage and power of ${SUB[id]}`
-          row.tag.textContent = isC ? 'Section 10.5' : 'Eq 9.11, 9.13'
+          row.tag.textContent = isC ? 'Eq 8.1' : 'Eq 9.11, 9.13'
         }
         row.body.innerHTML = r.html(c)
         const chk = r.check ? checks.get(r.check) : undefined
