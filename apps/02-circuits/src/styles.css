@@ -1,0 +1,596 @@
+/* Everything scoped under .sim02. No bare element selectors, no global class names.
+   Look: a soft toy bench. Blueberry-milk sky, mint board, grape wires, butter current, strawberry heat.
+   One family (Nunito, rounded). The board is the loud part; the notebook stays quiet. */
+.sim02 {
+  --c-sky: #e9e7ff;
+  --c-sky-2: #f7eaf5;
+  --c-paper: #fffdfb;
+  --c-tint: #f3f0ff;
+  --c-tint-2: #e8e3fb;
+  --c-ink: #3a3358;
+  --c-ink-2: #625a82;
+  --c-grape: #7467c2;
+  --c-grape-deep: #5a4daa;
+  --c-butter: #ffd15c;
+  --c-butter-soft: #fff1c4;
+  --c-mint: #cfebdb;
+  --c-mint-deep: #3f8a63;
+  --c-straw: #ff8fa3;
+  --c-straw-deep: #c23a57;
+  --r-s: 10px;
+  --r-m: 16px;
+  --r-l: 26px;
+  --r-pill: 999px;
+  --shadow-soft: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 8px 24px -10px rgba(74, 58, 140, 0.35);
+  --font: 'Nunito Variable', ui-rounded, 'SF Pro Rounded', system-ui, sans-serif;
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 430px);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 20% 0%, var(--c-sky-2) 0%, var(--c-sky) 55%, #e2e6ff 100%);
+  color: var(--c-ink);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+.sim02 [hidden] { display: none !important; }
+.sim02 .sim02-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.sim02 i { font-style: italic; font-weight: 700; }
+.sim02 sub, .sim02 sup { font-size: 0.68em; line-height: 0; }
+.sim02 button { font: inherit; color: inherit; }
+.sim02 :focus-visible { outline: 3px solid var(--c-grape); outline-offset: 3px; border-radius: 12px; }
+
+/* ---------- stage ---------- */
+.sim02 .sim02-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.sim02 .sim02-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  touch-action: none;
+  overflow: hidden;
+  cursor: grab;
+}
+.sim02 .sim02-canvas-wrap:active { cursor: grabbing; }
+.sim02 .sim02-canvas-wrap.is-grabbable { cursor: grab; }
+.sim02 .sim02-canvas-wrap.is-dragging { cursor: grabbing; }
+.sim02 .sim02-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.sim02 .sim02-nogl { margin: 40px; font-weight: 700; }
+.sim02 .sim02-labels, .sim02 .sim02-slots { position: absolute; inset: 0; pointer-events: none; }
+
+.sim02 .sim02-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  justify-items: center;
+  padding: 4px 11px 5px;
+  border-radius: 14px;
+  line-height: 1.2;
+  background: rgba(255, 253, 251, 0.92);
+  box-shadow: var(--shadow-soft);
+  font-size: 13px;
+  white-space: nowrap;
+  width: max-content;
+  translate: -50% -100%;
+  transition: background 0.2s, scale 0.25s var(--spring);
+}
+.sim02 .sim02-label.is-side { translate: -100% -50%; }
+.sim02 .sim02-label.is-below { translate: -50% 0; }
+.sim02 .sim02-label-top { display: flex; gap: 6px; align-items: baseline; }
+.sim02 .sim02-label b { font-weight: 900; color: var(--c-grape-deep); }
+.sim02 .sim02-label-val { font-weight: 800; }
+.sim02 .sim02-label-read { color: var(--c-ink-2); font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; }
+.sim02 .sim02-label-empty { color: var(--c-ink-2); font-weight: 600; }
+.sim02 .sim02-label.is-empty { background: rgba(255, 253, 251, 0.55); box-shadow: none; }
+.sim02 .sim02-label.is-empty .sim02-label-top { gap: 5px; }
+.sim02 .sim02-label.is-linked { background: var(--c-butter-soft); scale: 1.08; }
+.sim02 .sim02-junction, .sim02 .sim02-terminal {
+  position: absolute; left: 0; top: 0;
+  translate: -50% -50%;
+  display: grid; place-items: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--c-paper);
+  color: var(--c-grape-deep);
+  font-size: 12px; font-weight: 900;
+  box-shadow: var(--shadow-soft);
+}
+.sim02 .sim02-terminal { background: var(--c-butter); color: var(--c-ink); font-size: 15px; }
+.sim02 .sim02-batt-label {
+  position: absolute; left: 0; top: 0;
+  translate: 0 -50%;
+  padding: 4px 11px;
+  border-radius: 14px;
+  background: rgba(255, 253, 251, 0.92);
+  box-shadow: var(--shadow-soft);
+  font-size: 13px; font-weight: 800; white-space: nowrap; line-height: 1.3;
+}
+
+/* Slot buttons sit over each socket. Invisible until focused or until a part is being held. */
+.sim02 .sim02-slotbtn {
+  position: absolute; left: 0; top: 0;
+  width: 76px; height: 52px;
+  translate: -50% -50%;
+  border: 0;
+  border-radius: var(--r-l);
+  background: transparent;
+  pointer-events: none;
+  opacity: 0;
+  cursor: pointer;
+}
+.sim02 .sim02-slotbtn:focus-visible { opacity: 1; outline-offset: 0; }
+.sim02.is-holding .sim02-slotbtn {
+  pointer-events: auto;
+  opacity: 1;
+  background: rgba(255, 209, 92, 0.18);
+  box-shadow: 0 0 0 3px rgba(255, 209, 92, 0.7);
+  animation: sim02-breathe 1.4s ease-in-out infinite;
+}
+@keyframes sim02-breathe { 50% { scale: 1.08; } }
+
+.sim02 .sim02-status {
+  position: absolute;
+  left: 50%; bottom: 10px;
+  translate: -50% 8px;
+  margin: 0;
+  width: max-content;
+  max-width: min(560px, calc(100% - 32px));
+  padding: 9px 16px 10px;
+  border-radius: var(--r-m);
+  background: var(--c-paper);
+  box-shadow: var(--shadow-soft);
+  font-size: 14px; font-weight: 700;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, translate 0.45s var(--spring);
+}
+.sim02 .sim02-status.is-on { opacity: 1; translate: -50% 0; }
+.sim02 .sim02-status.is-warn { background: #fff0f2; color: var(--c-straw-deep); }
+
+.sim02 .sim02-recenter {
+  position: absolute; right: 14px; top: 14px;
+  padding: 7px 14px;
+  border: 0; border-radius: var(--r-pill);
+  background: rgba(255, 253, 251, 0.8);
+  box-shadow: var(--shadow-soft);
+  font-size: 13px; font-weight: 800;
+  cursor: pointer;
+}
+
+/* The value dial that pops up over a tapped resistor. */
+.sim02 .sim02-pop {
+  position: absolute; left: 0; top: 0;
+  translate: -50% calc(-100% - 18px);
+  transform-origin: 50% 100%;
+  display: grid; gap: 8px; justify-items: center;
+  padding: 12px 14px 12px;
+  min-width: 168px;
+  border-radius: var(--r-l);
+  background: var(--c-paper);
+  box-shadow: 0 18px 40px -16px rgba(58, 51, 88, 0.45), 0 0 0 1px rgba(116, 103, 194, 0.12);
+  z-index: 3;
+}
+.sim02 .sim02-pop::after {
+  content: ''; position: absolute; left: 50%; bottom: -7px;
+  width: 16px; height: 16px; translate: -50% 0; rotate: 45deg;
+  background: var(--c-paper); border-radius: 3px;
+}
+.sim02 .sim02-pop.is-below { translate: -50% 18px; transform-origin: 50% 0; }
+.sim02 .sim02-pop.is-below::after { bottom: auto; top: -7px; }
+.sim02 .sim02-pop-name { margin: 0; font-weight: 900; color: var(--c-grape-deep); }
+.sim02 .sim02-dial { display: flex; align-items: center; gap: 8px; }
+.sim02 .sim02-dial output { min-width: 64px; text-align: center; font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.sim02 .sim02-dial button {
+  width: 44px; height: 44px;
+  border: 0; border-radius: 50%;
+  background: var(--c-tint-2);
+  font-size: 24px; font-weight: 900; line-height: 1;
+  cursor: pointer;
+  transition: scale 0.3s var(--spring), background 0.15s;
+}
+.sim02 .sim02-dial button:hover { background: var(--c-butter-soft); }
+.sim02 .sim02-dial button:active { scale: 0.88; }
+.sim02 .sim02-pop-remove {
+  border: 0; background: none; padding: 6px 10px; border-radius: var(--r-pill);
+  font-size: 13px; font-weight: 800; color: var(--c-straw-deep); cursor: pointer;
+}
+.sim02 .sim02-pop-remove:hover { background: #fff0f2; }
+
+
+/* ---------- HUD: four big readouts over the board ---------- */
+.sim02 .sim02-hud {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  padding: 10px 10px 10px;
+  border-radius: 26px;
+  background: rgba(255, 253, 251, 0.78);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-soft);
+  max-width: calc(100% - 140px);
+}
+.sim02 .sim02-hud-title { margin: 0 6px; font-size: 14px; font-weight: 900; color: var(--c-grape-deep); }
+.sim02 .sim02-hud-title span { margin-left: 6px; font-weight: 700; color: var(--c-ink-2); }
+.sim02 .sim02-hud.is-warn .sim02-hud-title span { color: var(--c-straw-deep); }
+.sim02 .sim02-hud.is-part { box-shadow: var(--shadow-soft), 0 0 0 3px var(--c-butter); }
+.sim02 .sim02-hud-tiles { display: grid; grid-template-columns: repeat(4, minmax(112px, 1fr)); gap: 8px; }
+.sim02 .sim02-tile {
+  --tile-bg: #eeeaff;
+  --tile-flash: #ffe28f;
+  --tile-ink: #5a4daa;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 10px 12px 10px;
+  border-radius: 20px;
+  background: var(--tile-bg);
+  color: var(--tile-ink);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset;
+}
+.sim02 .sim02-tile-I { --tile-bg: #fff4d4; --tile-ink: #7f5500; }
+.sim02 .sim02-tile-V { --tile-bg: #e6efff; --tile-ink: #3c62b5; }
+.sim02 .sim02-tile-R { --tile-bg: #eeeaff; --tile-ink: #5a4daa; }
+.sim02 .sim02-tile-P { --tile-bg: #ffeaf0; --tile-ink: #b23b5b; }
+.sim02 .sim02-tile-icon {
+  grid-row: 1; display: grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+}
+.sim02 .sim02-tile-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.sim02 .sim02-tile-name { font-size: 13px; font-weight: 800; white-space: nowrap; }
+.sim02 .sim02-tile-name i { font-family: 'KaTeX_Math', 'Times New Roman', serif; font-weight: 400; font-size: 1.1em; margin-left: 1px; }
+.sim02 .sim02-tile-read { grid-column: 1 / -1; display: flex; align-items: baseline; margin-top: 2px; color: var(--c-ink); white-space: nowrap; }
+.sim02 .sim02-tile-value { display: inline-block; font-size: 26px; font-weight: 900; line-height: 1.1; font-variant-numeric: tabular-nums; transform-origin: 0 60%; }
+.sim02 .sim02-tile-unit { font-size: 16px; font-weight: 800; color: var(--tile-ink); }
+.sim02 .sim02-tile.is-na .sim02-tile-value { font-size: 17px; }
+.sim02 .sim02-tile.is-na .sim02-tile-unit { display: none; }
+.sim02 .sim02-tile-note { grid-column: 1 / -1; font-size: 12px; font-weight: 700; color: var(--tile-ink); opacity: 0.85; white-space: nowrap; }
+
+
+/* ---------- capacitor bits ---------- */
+.sim02 .sim02-tile-T { --tile-bg: #e3f5ea; --tile-ink: #2f7a54; }
+.sim02 .sim02-chip-art.is-cap { display: flex; justify-content: center; align-items: center; gap: 5px; }
+.sim02 .sim02-chip-art.is-cap::before { content: ''; position: absolute; left: 4px; right: 4px; top: 11px; height: 3px; border-radius: 2px; background: #b9b3d6; }
+.sim02 .sim02-chip-art.is-cap span { position: relative; width: 6px; height: 22px; border-radius: 4px; background: var(--c-butter); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.08); }
+.sim02 .sim02-chip-art.is-cap span + span { background: #b9b0ee; }
+.sim02 .sim02-chip:disabled { opacity: 0.42; cursor: not-allowed; translate: none; }
+
+/* ---------- time module: current over time ---------- */
+.sim02 .sim02-time {
+  --card-ink: #2f7a54;
+  margin-bottom: 18px;
+  padding: 14px 16px 14px;
+  border-radius: 22px;
+  background: #e8f6ee;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 6px 16px -12px rgba(74, 58, 140, 0.5);
+}
+.sim02 .sim02-time .sim02-row-head h2 { flex: 1; margin: 0; font-size: 17px; color: var(--card-ink); }
+.sim02 .sim02-time .sim02-icon { color: var(--card-ink); }
+.sim02 .sim02-time .sim02-tag { color: var(--card-ink); }
+.sim02 .sim02-time-empty p { margin: 4px 0 0; font-size: 14.5px; color: var(--c-ink-2); }
+.sim02 .sim02-time-live { display: grid; gap: 10px; margin-top: 4px; }
+.sim02 .sim02-seg { display: flex; gap: 4px; padding: 4px; border-radius: var(--r-pill); background: rgba(255, 255, 255, 0.75); width: fit-content; max-width: 100%; flex-wrap: wrap; }
+.sim02 .sim02-seg button {
+  border: 0; padding: 7px 12px; border-radius: var(--r-pill); background: transparent;
+  font-size: 13px; font-weight: 800; color: var(--c-ink-2); cursor: pointer;
+  transition: background 0.15s, color 0.15s, scale 0.3s var(--spring);
+}
+.sim02 .sim02-seg button[aria-pressed="true"] { background: var(--card-ink); color: #fff; }
+.sim02 .sim02-seg button:active { scale: 0.95; }
+.sim02 .sim02-plot { margin: 0; padding: 8px 10px 6px; border-radius: 16px; background: rgba(255, 255, 255, 0.85); }
+.sim02 .sim02-plot figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; font-weight: 800; color: var(--c-ink); }
+.sim02 .sim02-plot figcaption i { font-family: 'KaTeX_Math', 'Times New Roman', serif; font-weight: 400; font-size: 1.12em; }
+.sim02 .sim02-plot-now { font-size: 15px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.sim02 .sim02-plot svg { display: block; width: 100%; height: auto; overflow: visible; }
+.sim02 .sim02-plot .ax { stroke: #b8b0d8; stroke-width: 1.5; }
+.sim02 .sim02-plot .g { stroke: #e2ddf4; stroke-width: 1; stroke-dasharray: 3 3; }
+.sim02 .sim02-plot .m { stroke: #c9c2e6; stroke-width: 1; stroke-dasharray: 4 3; }
+.sim02 .sim02-plot .ml { font: 700 9.5px var(--font); fill: var(--c-ink-2); text-anchor: end; }
+.sim02 .sim02-plot .book { fill: none; stroke: #c9c2e6; stroke-width: 2; stroke-dasharray: 5 4; }
+.sim02 .sim02-plot .trace { fill: none; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.sim02 .sim02-plot-I .trace { stroke: #e0a400; }
+.sim02 .sim02-plot-V .trace { stroke: #4f7fd6; }
+.sim02 .sim02-plot .dot { stroke: #fff; stroke-width: 2.5; }
+.sim02 .sim02-plot-I .dot { fill: #e0a400; }
+.sim02 .sim02-plot-V .dot { fill: #4f7fd6; }
+.sim02 .sim02-plot .tx { font: 800 10px var(--font); fill: var(--c-ink-2); text-anchor: middle; }
+.sim02 .sim02-plot .ty { font: 800 10px var(--font); fill: var(--c-ink-2); text-anchor: end; }
+.sim02 .sim02-plot .tu { font: 800 10px var(--font); fill: var(--c-ink-2); text-anchor: end; }
+.sim02 .sim02-time-clock { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--c-ink-2); font-variant-numeric: tabular-nums; }
+.sim02 .sim02-time-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+
+/* ---------- dock (the parts tray) ---------- */
+.sim02 .sim02-dock {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* the tray scrolls inside the screen instead of widening the page */
+  justify-items: center;
+  gap: 6px;
+  padding: 0 16px 16px;
+}
+.sim02 .sim02-dock-hint { margin: 0; font-size: 13px; font-weight: 700; color: var(--c-ink-2); text-align: center; }
+.sim02 .sim02-tray {
+  display: flex;
+  gap: 8px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 8px;
+  border-radius: var(--r-l);
+  background: rgba(255, 253, 251, 0.75);
+  box-shadow: var(--shadow-soft);
+  scrollbar-width: none;
+}
+.sim02 .sim02-chip {
+  flex: none;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  width: 78px;
+  padding: 8px 4px 6px;
+  border: 0;
+  border-radius: var(--r-m);
+  background: var(--c-tint);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background 0.15s, scale 0.35s var(--spring), translate 0.35s var(--spring);
+}
+.sim02 .sim02-chip:hover { background: var(--c-butter-soft); translate: 0 -3px; }
+.sim02 .sim02-chip:active { scale: 0.94; cursor: grabbing; }
+.sim02 .sim02-chip.is-holding { background: var(--c-butter); translate: 0 -6px; box-shadow: 0 10px 20px -10px rgba(116, 103, 194, 0.7); }
+.sim02 .sim02-chip-label { font-size: 14px; font-weight: 900; }
+.sim02 .sim02-chip-art { display: block; width: 60px; height: 24px; position: relative; }
+.sim02 .sim02-chip-art.is-resistor::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 11px; height: 3px; border-radius: 2px; background: #b9b3d6;
+}
+.sim02 .sim02-chip-body {
+  position: absolute; left: 13px; right: 13px; top: 3px; bottom: 3px;
+  display: flex; justify-content: center; gap: 3px; padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: #ffe6c9;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.06);
+}
+.sim02 .sim02-chip-body span { width: 3px; height: 100%; border-radius: 1px; }
+.sim02 .sim02-chip-body span:last-child { margin-left: 3px; }
+.sim02 .sim02-chip-art.is-wire svg { width: 60px; height: 24px; fill: none; stroke: #9b8fe6; stroke-width: 5; stroke-linecap: round; }
+
+/* ---------- the notebook ---------- */
+.sim02 .sim02-notebook {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 24px 40px;
+  background: var(--c-paper);
+  border-radius: var(--r-l) 0 0 var(--r-l);
+  box-shadow: -18px 0 50px -30px rgba(74, 58, 140, 0.45);
+  overscroll-behavior: contain;
+}
+.sim02 .sim02-head h1 { margin: 0 0 6px; font-size: 30px; line-height: 1.1; font-weight: 900; letter-spacing: -0.01em; color: var(--c-grape-deep); }
+.sim02 .sim02-head p { margin: 0 0 20px; color: var(--c-ink-2); font-size: 15px; max-width: 60ch; }
+.sim02 h2 { margin: 0 0 10px; font-size: 17px; font-weight: 900; }
+.sim02 .sim02-small { margin: 0 0 10px; font-size: 13px; color: var(--c-ink-2); }
+
+.sim02 .sim02-battery {
+  display: grid; gap: 10px;
+  padding: 14px 16px 16px;
+  margin-bottom: 18px;
+  border-radius: 22px;
+  background: var(--c-tint);
+}
+.sim02 .sim02-battery h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
+.sim02 .sim02-battery .sim02-small { margin: 0; }
+.sim02 .sim02-mini-batt {
+  position: relative; width: 26px; height: 15px; border-radius: 8px; background: #8fb2ff;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.08);
+}
+.sim02 .sim02-mini-batt::after { content: ''; position: absolute; right: -4px; top: 4px; width: 4px; height: 7px; border-radius: 0 3px 3px 0; background: var(--c-butter); }
+.sim02 .sim02-mini-batt::before { content: ''; position: absolute; left: 8px; top: 5px; width: 2px; height: 2px; border-radius: 50%; background: var(--c-ink); box-shadow: 7px 0 0 var(--c-ink); }
+.sim02 .sim02-notes-head { margin: 4px 0 12px; }
+.sim02 .sim02-notes-head h2 { margin: 0 0 2px; font-size: 20px; color: var(--c-grape-deep); }
+.sim02 .sim02-notes-head .sim02-small { margin: 0; }
+.sim02 .sim02-slider { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 4px 12px; font-size: 14px; font-weight: 700; }
+.sim02 .sim02-out { font-weight: 900; font-variant-numeric: tabular-nums; }
+.sim02 .sim02-slider input { grid-column: 1 / -1; width: 100%; margin: 4px 0 0; accent-color: var(--c-grape); height: 28px; }
+
+.sim02 .sim02-preview-pill {
+  position: sticky; top: 0; z-index: 2;
+  width: fit-content; margin: 0 auto 8px;
+  padding: 5px 14px; border-radius: var(--r-pill);
+  background: var(--c-butter); font-size: 13px; font-weight: 900;
+  opacity: 0; translate: 0 -6px; pointer-events: none;
+  transition: opacity 0.2s, translate 0.35s var(--spring);
+}
+.sim02.is-previewing .sim02-preview-pill { opacity: 1; translate: 0 0; }
+
+.sim02 .sim02-eqs { display: grid; gap: 12px; margin-bottom: 26px; }
+.sim02 .sim02-row {
+  --card: var(--c-tint);
+  --card-ink: var(--c-grape-deep);
+  position: relative;
+  padding: 14px 16px 12px;
+  border-radius: 22px;
+  background: var(--card);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 6px 16px -12px rgba(74, 58, 140, 0.5);
+}
+.sim02 .sim02-row-parallel { --card: #e3f5ea; --card-ink: #2f7a54; }
+.sim02 .sim02-row-series   { --card: #eeeaff; --card-ink: #5a4daa; }
+.sim02 .sim02-row-current  { --card: #fff4d4; --card-ink: #7f5500; }
+.sim02 .sim02-row-terminal { --card: #e6efff; --card-ink: #3c62b5; }
+.sim02 .sim02-row-junction { --card: #e3f5ea; --card-ink: #2f7a54; }
+.sim02 .sim02-row-loop     { --card: #ffeaf0; --card-ink: #b23b5b; }
+.sim02 .sim02-row-part     { --card: #fff0e6; --card-ink: #96461c; }
+.sim02 .sim02-row-energy   { --card: #fff4d4; --card-ink: #7f5500; }
+.sim02 .sim02-row-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.sim02 .sim02-icon {
+  flex: none; display: grid; place-items: center;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--card-ink);
+}
+.sim02 .sim02-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sim02 .sim02-row-head h3 { flex: 1; margin: 0; font-size: 16px; font-weight: 900; line-height: 1.2; color: var(--card-ink); }
+.sim02 .sim02-tag {
+  flex: none; padding: 3px 9px; border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.9); color: var(--card-ink);
+  font-size: 12px; font-weight: 900;
+  rotate: -3deg;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.04);
+}
+.sim02 .sim02-row-body { display: grid; gap: 2px; }
+.sim02 .sim02-eq {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+  font-size: 17px;
+  color: var(--c-ink);
+  scrollbar-width: thin;
+}
+.sim02 .sim02-eq.sim02-sub { font-size: 15.5px; color: var(--c-ink-2); }
+.sim02 .sim02-eq .katex { font-size: 1.12em; }
+.sim02 .sim02-say .katex { font-size: 1.04em; }
+/* live numbers: Nunito pills sitting inside the typeset math */
+.sim02 .sim02-eq .sim02-num {
+  display: inline-block;
+  padding: 0.04em 0.28em 0.08em;
+  margin: 0 0.04em;
+  border-radius: 0.5em;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--c-ink);
+  font-family: var(--font);
+  font-style: normal;
+  font-weight: 900;
+  font-size: 0.92em;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+}
+.sim02 .sim02-eq .sim02-num * { font-family: inherit !important; font-style: normal !important; }
+.sim02 .sim02-eqs.is-preview .sim02-num { color: var(--c-grape-deep); box-shadow: 0 0 0 2px var(--c-butter); }
+.sim02 .sim02-sym { border-radius: 0.4em; padding: 0 0.08em; transition: background 0.15s, box-shadow 0.15s; }
+.sim02 .sim02-sym.is-linked { background: var(--c-butter); box-shadow: 0 0 0 3px var(--c-butter); }
+.sim02 .sim02-say { margin: 8px 0 0; font-size: 14.5px; line-height: 1.5; color: var(--c-ink-2); max-width: 60ch; }
+.sim02 .sim02-check { margin: 10px 0 0; font-size: 12.5px; font-weight: 800; color: var(--c-ink-2); }
+.sim02 .sim02-check:empty { display: none; }
+.sim02 .sim02-check span {
+  display: inline-grid; place-items: center;
+  width: 18px; height: 18px; margin-right: 4px; border-radius: 50%;
+  font-size: 11px; vertical-align: -3px;
+}
+.sim02 .sim02-check.is-ok span { background: #bfe8cf; color: #2f7a54; }
+.sim02 .sim02-check.is-bad span { background: #ffd2da; color: var(--c-straw-deep); }
+.sim02 .sim02-check.is-bad { color: var(--c-straw-deep); }
+
+.sim02 .sim02-book { margin-bottom: 18px; }
+.sim02 .sim02-presets { display: grid; gap: 8px; margin-bottom: 12px; }
+.sim02 .sim02-preset {
+  display: grid; gap: 2px; text-align: left;
+  padding: 10px 14px;
+  border: 0; border-radius: var(--r-m);
+  background: var(--c-tint);
+  cursor: pointer;
+  transition: background 0.15s, scale 0.3s var(--spring);
+}
+.sim02 .sim02-preset b { font-weight: 900; color: var(--c-grape-deep); }
+.sim02 .sim02-preset span { font-size: 13px; color: var(--c-ink-2); }
+.sim02 .sim02-preset:hover { background: var(--c-butter-soft); }
+.sim02 .sim02-preset:active { scale: 0.98; }
+.sim02 .sim02-compare { margin-bottom: 12px; padding: 12px 14px; border-radius: var(--r-m); background: #f1faf4; }
+.sim02 .sim02-compare table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.sim02 .sim02-compare th, .sim02 .sim02-compare td { padding: 4px 6px; text-align: left; }
+.sim02 .sim02-compare thead th { font-size: 12px; color: var(--c-ink-2); font-weight: 800; }
+.sim02 .sim02-compare tbody th { font-weight: 800; }
+.sim02 .sim02-compare td { font-weight: 800; }
+.sim02 .sim02-clear {
+  padding: 8px 14px; border: 0; border-radius: var(--r-pill);
+  background: none; box-shadow: inset 0 0 0 2px var(--c-tint-2);
+  font-size: 14px; font-weight: 800; cursor: pointer;
+}
+.sim02 .sim02-clear:hover { background: var(--c-tint); }
+.sim02 .sim02-approx { padding: 12px 14px; border-radius: var(--r-m); background: var(--c-tint); font-size: 14px; }
+.sim02 .sim02-approx summary { font-weight: 900; cursor: pointer; }
+.sim02 .sim02-approx ul { margin: 10px 0 0; padding-left: 18px; color: var(--c-ink-2); display: grid; gap: 6px; }
+
+/* ---------- phones and narrow windows: the board stays pinned on top, the notebook scrolls under it ---------- */
+@media (max-width: 860px) {
+  .sim02 {
+    display: block;
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .sim02 .sim02-stage {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: radial-gradient(120% 90% at 20% 0%, var(--c-sky-2) 0%, var(--c-sky) 60%);
+    border-radius: 0 0 var(--r-l) var(--r-l);
+    box-shadow: 0 16px 30px -24px rgba(74, 58, 140, 0.6);
+  }
+  /* the board is limited by width on a phone, so size its box to the board instead of to the screen */
+  .sim02 .sim02-canvas-wrap { flex: none; height: clamp(240px, calc(64vw + 24px), 48svh); }
+  .sim02 .sim02-hud {
+    position: static;
+    max-width: none;
+    margin: 0 10px 8px;
+    padding: 6px;
+    gap: 4px;
+    border-radius: 20px;
+  }
+  .sim02 .sim02-hud-title { font-size: 12px; margin: 0 6px; }
+  .sim02 .sim02-hud-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+  .sim02 .sim02-tile { padding: 6px 6px 7px; border-radius: 14px; gap: 0 4px; }
+  .sim02 .sim02-tile-icon { display: none; }
+  .sim02 .sim02-tile-name { grid-column: 1 / -1; font-size: 11px; white-space: normal; line-height: 1.15; }
+  .sim02 .sim02-tile-value { font-size: 16px; }
+  .sim02 .sim02-tile-read { flex-wrap: wrap; }
+  .sim02 .sim02-tile-unit { font-size: 12px; }
+  .sim02 .sim02-tile.is-na .sim02-tile-value { font-size: 12px; }
+  .sim02 .sim02-tile-note { display: none; }
+  .sim02 .sim02-dock { padding: 0 12px 10px; gap: 4px; }
+  .sim02 .sim02-dock-hint { font-size: 12px; }
+  .sim02 .sim02-tray { gap: 6px; padding: 6px; }
+  .sim02 .sim02-chip { width: 52px; padding: 6px 2px 4px; }
+  .sim02 .sim02-chip-label { font-size: 12.5px; }
+  .sim02 .sim02-chip-art { width: 44px; }
+  .sim02 .sim02-chip-art.is-wire svg { width: 44px; }
+  .sim02 .sim02-chip-body { left: 8px; right: 8px; }
+  .sim02 .sim02-notebook {
+    overflow: visible;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    padding: 18px 16px 48px;
+    padding-bottom: calc(48px + env(safe-area-inset-bottom));
+  }
+  .sim02 .sim02-head h1 { font-size: 24px; }
+  /* anything scrolled to or focused lands below the pinned board, not under it */
+  .sim02 .sim02-notebook :is(section, article, figure, details, button, input, output) { scroll-margin-top: calc(var(--sim02-stage-h, 0px) + 12px); }
+  .sim02 .sim02-label { font-size: 12px; padding: 2px 8px 3px; gap: 4px; }
+  .sim02 .sim02-label-read { display: none; }
+  .sim02 .sim02-label.is-linked .sim02-label-read, .sim02 .sim02-label.is-sel .sim02-label-read { display: inline; }
+  .sim02 .sim02-status { font-size: 13px; bottom: 6px; }
+  .sim02 .sim02-label-empty { display: none; }
+  .sim02 .sim02-recenter { top: 8px; right: 8px; font-size: 12px; padding: 5px 10px; }
+  .sim02 .sim02-preview-pill { position: fixed; top: auto; bottom: calc(16px + env(safe-area-inset-bottom)); left: 50%; translate: -50% 6px; }
+  .sim02.is-previewing .sim02-preview-pill { translate: -50% 0; }
+  .sim02 .sim02-dock-hint .sim02-long { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sim02 *, .sim02 *::before, .sim02 *::after { transition-duration: 0.01ms !important; animation: none !important; }
+}

@@ -9,6 +9,7 @@ Live: https://sam-t-g.github.io/physics-sims/
 | App | Concept | Status |
 |---|---|---|
 | `01-electrostatics` | Charge → Coulomb → field → why r² → flux → Gauss → symmetry | complete: eight chapters, every scene live, checkpoints, linked equations, approximation panel |
+| `02-circuits` | Plug-and-play resistors and a capacitor on a 3D board: series, parallel, real battery, Kirchhoff's rules, power, RC charging and discharging | live at `/02-circuits/`: drag-to-snap parts, HUD readouts, live KaTeX equations checked against a full nodal solve, current-over-time plots, OpenStax Examples 10.1, 10.3, 10.4 as presets |
 
 ## Run
 
@@ -16,13 +17,14 @@ Live: https://sam-t-g.github.io/physics-sims/
 pnpm install
 pnpm test        # physics tests, no DOM
 pnpm dev         # 01-electrostatics at http://localhost:5173
+pnpm dev:02      # 02-circuits
 pnpm build       # dist/<app>/
 ```
 
 ## Layout
 
 ```
-lib/physics/   pure TypeScript: fields, flux, field lines, integrator. Imports nothing from three or gsap.
+lib/physics/   pure TypeScript: fields, flux, field lines, integrator, DC circuit solver, RC closed forms. Imports nothing from three, gsap or motion.
 lib/render/    Three.js helpers: stage (renderer, camera, lights, orbit), surface mesh, shells, charge markers. Never imports gsap.
 lib/chrome/    chapters, tool belt, camera rig, reduced motion; later checkpoints and linked equations. The only place gsap is imported.
 lib/tokens.css shared design tokens.

@@ -4,11 +4,13 @@
   "description": "Interactive 3D physics simulations for Physics 4B (E&M). Honors contract, RCC Fall 2026.",
   "scripts": {
     "dev": "vite --config apps/01-electrostatics/vite.config.ts",
-    "build": "vite build --config apps/01-electrostatics/vite.config.ts",
+    "build": "vite build --config apps/01-electrostatics/vite.config.ts && vite build --config apps/02-circuits/vite.config.ts",
     "preview": "vite preview --config apps/01-electrostatics/vite.config.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:02": "vite --config apps/02-circuits/vite.config.ts",
+    "preview:02": "vite preview --config apps/02-circuits/vite.config.ts"
   },
   "keywords": [],
   "author": "",
@@ -22,7 +24,10 @@
   },
   "type": "module",
   "dependencies": {
+    "@fontsource-variable/nunito": "^5.3.0",
     "gsap": "^3.15.0",
+    "katex": "^0.19.0",
+    "motion": "^14.1.0",
     "three": "^0.186.0"
   },
   "devDependencies": {
