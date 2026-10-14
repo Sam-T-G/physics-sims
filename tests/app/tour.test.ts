@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import katex from 'katex'
 import { solveBoard, SLOT_IDS, type Part, type Slots } from '../../apps/02-circuits/src/board'
-import { STEPS, CHAPTERS, type Action, type GuideState, type Setup, type Step } from '../../apps/02-circuits/src/tour'
+import { STEPS, CHAPTERS, SHOTS, type Action, type GuideState, type Setup, type Step } from '../../apps/02-circuits/src/tour'
 import { relaxVoltage } from '../../lib/physics/rc'
 
 // A pure stand-in for the app: the same board solve, the same rule that a change to the circuit restarts the
@@ -151,6 +151,20 @@ describe('guided tour', () => {
       for (const t of texts) expect(t, st.id).not.toMatch(/ — |—/)
       expect(st.task?.text ?? '', st.id).not.toMatch(/^It /)
       void s
+    }
+  })
+
+  it('every camera direction names a real shot, and every shot looks at a point on the board', () => {
+    const names = new Set([...Object.keys(SHOTS), 'overview'])
+    for (const st of STEPS) {
+      expect(names.has(st.cam ?? 'overview'), `${st.id} cam ${st.cam}`).toBe(true)
+      if (st.camAfter) expect(names.has(st.camAfter), `${st.id} camAfter ${st.camAfter}`).toBe(true)
+    }
+    for (const [name, sh] of Object.entries(SHOTS)) {
+      expect(Math.abs(sh.x) <= 5 && Math.abs(sh.z) <= 2.5, name).toBe(true)
+      // inside the orbit limits (polar 0.2 to 1.0 rad from straight down), so the controls never snap the camera
+      const phi = Math.PI / 2 - sh.el
+      expect(phi >= 0.2 && phi <= 1.0, `${name} el ${sh.el}`).toBe(true)
     }
   })
 })

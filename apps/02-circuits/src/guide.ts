@@ -4,7 +4,8 @@
 
 import katex from 'katex'
 import { animate, stagger } from 'motion'
-import { STEPS, CHAPTERS, type Action, type GuideState, type Setup, type Spot, type Step } from './tour'
+import { STEPS, CHAPTERS, type Action, type GuideState, type Setup, type ShotName, type Spot, type Step } from './tour'
+import { reading } from './format'
 
 export type GuideApi = {
   state(): GuideState
@@ -15,6 +16,8 @@ export type GuideApi = {
   touring(on: boolean): void
   /** A soft ring pulse on the step's slots when a task is done. */
   celebrate(): void
+  /** Fly the camera to a named shot. */
+  camera(shot: ShotName): void
 }
 
 export type Guide = {
@@ -105,7 +108,7 @@ export function createGuide(api: GuideApi, reduce: () => boolean): Guide {
     <div class="sim02-guide-q">
       <p class="sim02-guide-qtext"><span class="sim02-guide-badge">Predict</span>${st.predict.q}</p>
       <div class="sim02-guide-opts" role="group" aria-label="Your prediction">
-        ${st.predict.options.map((o, k) => `<button type="button" class="sim02-guide-opt" data-opt="${k}" aria-pressed="false">${o}</button>`).join('')}
+        ${st.predict.options.map((o, k) => `<button type="button" class="sim02-guide-opt" data-opt="${k}" aria-pressed="false"><span>${o}</span></button>`).join('')}
       </div>
     </div>`
 
@@ -171,6 +174,7 @@ export function createGuide(api: GuideApi, reduce: () => boolean): Guide {
     autoBusy = false
     if (st.setup && !(st.keepIf?.(api.state()) ?? false)) api.setup(st.setup)
     api.spot(st.spot ?? null)
+    api.camera(st.cam ?? 'overview')
     const s = api.state()
     before = st.measure ? st.measure(s) : NaN
     phase = st.predict ? 'predict' : st.task ? 'task' : 'done'
@@ -240,21 +244,40 @@ export function createGuide(api: GuideApi, reduce: () => boolean): Guide {
     doneAt = s
     const box = body.querySelector<HTMLElement>('.sim02-guide-reveal')
     if (!box) return
-    let verdict = ''
+    if (st.camAfter) api.camera(st.camAfter)
+    let stamp = ''
+    let answerLine = ''
     if (st.predict) {
       const right = st.predict.answer({ s, before, after, pick })
       const ok = pick === right
-      verdict = `<p class="sim02-guide-verdict ${ok ? 'is-right' : 'is-off'}">${svg(ok ? ICON.check : ICON.eye)}<span>${ok ? 'Your prediction was right.' : `Your prediction was different. The answer: ${st.predict.options[right]}.`}</span></p>`
+      stamp = `<p class="sim02-guide-stamp ${ok ? 'is-right' : 'is-off'}">${svg(ok ? ICON.check : ICON.eye)}<span>${ok ? 'Your prediction was right' : 'Different from your prediction'}</span></p>`
+      // the right option is also marked in the list; say it in words too, so color is never the only cue
+      if (!ok) answerLine = `<p class="sim02-guide-answer">The answer: <b>${st.predict.options[right]}</b></p>`
       body.querySelectorAll<HTMLButtonElement>('[data-opt]').forEach((b, i) => b.classList.toggle('is-answer', i === right))
     }
+    const ro = st.readout && Number.isFinite(before) && Number.isFinite(after) ? st.readout : null
+    const readout = !ro ? '' : `
+      <div class="sim02-guide-readout" data-kind="${ro.kind}">
+        <p class="sim02-guide-ro-label">${ro.label}</p>
+        <div class="sim02-guide-ro-row">
+          <span class="sim02-guide-ro-tile"><small>Before</small><b>${reading(before, ro.unit)}</b></span>
+          <span class="sim02-guide-ro-arrow" aria-hidden="true">${svg('<path d="M4 12h15M14 6l6 6-6 6"/>')}</span>
+          <span class="sim02-guide-ro-tile is-after"><small>After</small><b class="sim02-guide-ro-now">${reading(after, ro.unit)}</b></span>
+        </div>
+      </div>`
     const html = st.reveal ? st.reveal({ s, before, after, pick }) : ''
-    if (!verdict && !html) { paintNext(); return }
-    box.innerHTML = verdict + html
+    if (!stamp && !html) { paintNext(); return }
+    box.innerHTML = stamp + readout + answerLine + `<div class="sim02-guide-why">${html}</div>`
     box.hidden = false
     paintNext()
     if (animateIn && !reduce()) {
-      run(animate(box, { opacity: [0, 1], y: [14, 0], scale: [0.97, 1] }, { type: 'spring', stiffness: 260, damping: 22 }))
-      run(animate(next, { scale: [1, 1.1, 0.97, 1], rotate: [0, -3, 2, 0] }, { duration: 0.6, delay: 0.25, ease: 'easeOut' }))
+      run(animate(box, { opacity: [0, 1], y: [16, 0], scale: [0.96, 1] }, { type: 'spring', stiffness: 260, damping: 22 }))
+      const stampEl = box.querySelector<HTMLElement>('.sim02-guide-stamp')
+      if (stampEl) run(animate(stampEl, { scale: [1.6, 0.92, 1], opacity: [0, 1], rotate: [-12, 4, 3] }, { duration: 0.5, delay: 0.18, ease: 'easeOut' }))
+      // the after number counts from the before number, the same way the HUD tiles count
+      const now = box.querySelector<HTMLElement>('.sim02-guide-ro-now')
+      if (now && ro) run(animate(before, after, { duration: 0.9, delay: 0.3, ease: [0.22, 1, 0.36, 1], onUpdate: x => { now.textContent = reading(x, ro.unit) }, onComplete: () => { now.textContent = reading(after, ro.unit) } }))
+      run(animate(next, { scale: [1, 1.1, 0.97, 1], rotate: [0, -3, 2, 0] }, { duration: 0.6, delay: 0.35, ease: 'easeOut' }))
     }
   }
 
@@ -284,6 +307,7 @@ export function createGuide(api: GuideApi, reduce: () => boolean): Guide {
     phase = 'read'
     on = false
     api.spot(null)
+    api.camera('overview')
     api.touring(false)
     paintStart()
     const done = () => { el.hidden = true; startButton.hidden = false; if (!reduce()) run(animate(startButton, { scale: [0.9, 1] }, { type: 'spring', stiffness: 400, damping: 18 })) }

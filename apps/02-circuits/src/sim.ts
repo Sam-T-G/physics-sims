@@ -6,12 +6,12 @@ import {
   solveBoard, SLOTS, SLOT_IDS, OHM_STEPS, FARAD_STEPS, PRESETS, NODES,
   type BoardResult, type Part, type Slots, type SlotId, type Pt, type Preset,
 } from './board'
-import { createScene, REST_Y, type PieceView, type Scene } from './scene'
+import { createScene, REST_Y, type CameraPose, type CameraShot, type PieceView, type Scene } from './scene'
 import { createPanel, type Panel } from './panel'
 import { createHud } from './hud'
 import { createTimeModule, type RcClock } from './timeModule'
 import { createGuide, type Guide } from './guide'
-import type { Action, GuideState, Setup, Spot } from './tour'
+import { SHOTS, type Action, type GuideState, type Setup, type ShotName, type Spot } from './tour'
 import { relaxVoltage } from '@lib/physics'
 import { colorBands, BAND_HEX } from './colorCode'
 import { sig, sig3, exact, reading, SUB } from './format'
@@ -62,9 +62,12 @@ const START: Slots = {
   R5: { kind: 'wire' },
 }
 
-const MAGNET = 1.6 // board units: a part starts leaning toward a socket inside this radius
-const LOCK = 0.62 // and clicks into it inside this one
+const MAGNET = 2.2 // board units: a part starts leaning toward a socket inside this radius
+const LOCK = 0.85 // and clicks into it inside this one
+const HOLD = 1.3 // a latched part stays latched until it is this many LOCK radii away (no flicker at the edge)
 const LIFT = 0.95
+/** Sockets are long, so distance is measured to a segment this far either side of the socket's center. */
+const SOCKET_HALF = 0.7
 
 export type MountOptions = { basePath?: string }
 let active: { unmount(): void } | null = null
@@ -480,16 +483,17 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
     ndc.set(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1)
     return ndc
   }
+  const slotDist = (p: Pt, id: SlotId) => {
+    const c = SLOTS[id].center
+    const dx = SLOTS[id].vertical ? p.x - c.x : Math.max(0, Math.abs(p.x - c.x) - SOCKET_HALF)
+    const dz = SLOTS[id].vertical ? Math.max(0, Math.abs(p.z - c.z) - SOCKET_HALF) : p.z - c.z
+    return Math.hypot(dx, dz)
+  }
   const nearestSlot = (p: Pt, exclude: Piece) => {
     let best: SlotId | null = null
     let bd = Infinity
     for (const id of SLOT_IDS) {
-      const c = SLOTS[id].center
-      // sockets are long, so measure to the segment, not the center: easier to hit
-      const halfLen = 0.5
-      const dx = SLOTS[id].vertical ? p.x - c.x : Math.max(0, Math.abs(p.x - c.x) - halfLen)
-      const dz = SLOTS[id].vertical ? Math.max(0, Math.abs(p.z - c.z) - halfLen) : p.z - c.z
-      const d = Math.hypot(dx, dz)
+      const d = slotDist(p, id)
       if (d < bd && pieces.get(id) !== exclude) { bd = d; best = id }
     }
     return { id: best, d: bd }
@@ -519,22 +523,36 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
     }
     const p = sc.boardPoint(toNdc(e.clientX, e.clientY), REST_Y)
     if (!p) return
-    const { id, d: dd } = nearestSlot(p, d.piece)
-    let tx = p.x, tz = p.z, ty = REST_Y + LIFT
+    // Two magnet points. The pointer's spot on the board, and the spot the floating part appears to be over:
+    // the part is drawn LIFT above the pointer's spot, and from the camera's angle that reads as further up
+    // the board. Measured from where the part floats with no pull, so the pull never feeds back into it.
+    const seen = sc.groundUnder(p.x, REST_Y + LIFT, p.z) ?? p
+    const byPointer = nearestSlot(p, d.piece)
+    const bySight = nearestSlot(seen, d.piece)
+    const useSight = bySight.d < byPointer.d
+    let { id, d: dd } = useSight ? bySight : byPointer
     let lock: SlotId | null = null
-    if (id && dd < MAGNET) {
+    // a latched part holds on a little longer before letting go, unless another socket is clearly closer
+    const held = d.lockSlot && d.moved && pieces.get(d.lockSlot) !== d.piece ? d.lockSlot : null
+    if (held) {
+      const dl = Math.min(slotDist(p, held), slotDist(seen, held))
+      if (dl < LOCK * HOLD && (id === held || dd > dl * 0.7)) { id = held; dd = dl; lock = held }
+    }
+    if (!lock && id && dd < LOCK) lock = id
+    let tx = p.x, tz = p.z, ty = REST_Y + LIFT
+    if (lock) {
+      const c = SLOTS[lock].center
+      tx = c.x; tz = c.z; ty = REST_Y + 0.28
+    } else if (id && dd < MAGNET) {
       const c = SLOTS[id].center
-      if (dd < LOCK) {
-        lock = id
-        tx = c.x; tz = c.z; ty = REST_Y + 0.28
-      } else {
-        // the pull grows smoothly as you get closer: the magnet feel
-        const u = 1 - (dd - LOCK) / (MAGNET - LOCK)
-        const pull = u * u * (3 - 2 * u) * 0.55
-        tx = p.x + (c.x - p.x) * pull
-        tz = p.z + (c.z - p.z) * pull
-        ty = REST_Y + LIFT - pull * 0.5
-      }
+      // the pull grows smoothly as you get closer: the magnet feel. It closes the gap between the socket and
+      // whichever magnet point is nearer, so the part slides toward the socket the way the student sees it.
+      const from = useSight ? seen : p
+      const u = 1 - (dd - LOCK) / (MAGNET - LOCK)
+      const pull = u * u * (3 - 2 * u) * 0.55
+      tx = p.x + (c.x - from.x) * pull
+      tz = p.z + (c.z - from.z) * pull
+      ty = REST_Y + LIFT - pull * 0.5
     }
     d.near = id && dd < MAGNET ? id : null
     d.piece.tx.set(tx); d.piece.tz.set(tz); d.piece.ty.set(ty)
@@ -840,8 +858,46 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
   }
   const onClear = () => { compare.hidden = true; loadSlots({}) }
   $('.sim02-clear-board').addEventListener('click', onClear)
-  const onRecenter = () => sc.resetView()
+  const onRecenter = () => flyTo(null)
   $('.sim02-recenter').addEventListener('click', onRecenter)
+
+  // ---------- camera direction ----------
+  // The tour flies the camera between framed shots of the board. Motion drives one number from 0 to 1 and the
+  // pose is blended from it: the look-at point slides, the camera swings around the board on the short way,
+  // and the distance bows outward mid-flight so the move reads as a gentle pull back and push in.
+  let camTween: { stop(): void } | null = null
+  /** The shot the camera should hold through a resize; undefined once the student orbits by hand. */
+  let shotNow: CameraShot | null | undefined
+  const lerp = (a: number, b: number, u: number) => a + (b - a) * u
+  const turn = (a: number, b: number) => { const d = (((b - a + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; return d }
+  const flyTo = (shot: CameraShot | null) => {
+    shotNow = shot
+    camTween?.stop()
+    camTween = null
+    const to = sc.shotPose(shot)
+    // reduced motion: cut straight to the shot, no flight
+    if (reduce) { sc.applyPose(to); return }
+    const from: CameraPose = sc.cameraPose()
+    const dTheta = turn(from.theta, to.theta)
+    const travel = Math.hypot(to.tx - from.tx, to.tz - from.tz) + Math.abs(to.radius - from.radius) * 0.35 + Math.abs(dTheta) * 4 + Math.abs(to.phi - from.phi) * 4
+    if (travel < 0.04) return
+    const duration = Math.min(1.9, 0.95 + travel * 0.07)
+    const bow = Math.min(2.6, 0.1 * travel + 0.05 * Math.max(from.radius, to.radius))
+    camTween = run(animate(0, 1, {
+      duration,
+      ease: [0.45, 0.05, 0.22, 1],
+      onUpdate: u => sc.applyPose({
+        tx: lerp(from.tx, to.tx, u), ty: lerp(from.ty, to.ty, u), tz: lerp(from.tz, to.tz, u),
+        radius: lerp(from.radius, to.radius, u) + Math.sin(Math.PI * u) * bow,
+        theta: from.theta + dTheta * u,
+        phi: lerp(from.phi, to.phi, u),
+      }),
+    }))
+  }
+  const camera = (name: ShotName) => flyTo(name === 'overview' ? null : SHOTS[name])
+  // a hand on the board wins: orbiting stops the flight and the camera stays where the student puts it
+  const onOrbitStart = () => { camTween?.stop(); camTween = null; shotNow = undefined }
+  sc.controls.addEventListener('start', onOrbitStart)
 
   // ---------- guided tour ----------
   const samePart = (a?: Part, b?: Part) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
@@ -912,6 +968,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
     act,
     spot,
     touring: on => { el.classList.toggle('is-touring', on); notebook.scrollTop = 0 },
+    camera,
     celebrate: () => { for (const id of guideSpots) if (pieces.has(id)) ringPulse(id) },
   }, () => reduce)
   $('.sim02-tour-slot').replaceWith(guide.startButton)
@@ -922,6 +979,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
   let lastW = 0, lastH = 0
   const ro = new ResizeObserver(() => {
     const w = wrap.clientWidth, h = wrap.clientHeight
+    const poseBefore = sc.cameraPose()
     // on wide screens the HUD floats over the board's top edge, so keep that strip clear
     el.style.setProperty('--sim02-stage-h', `${$('.sim02-stage').getBoundingClientRect().height}px`)
     const floating = getComputedStyle(hud.el).position === 'absolute'
@@ -930,6 +988,10 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
     if (p !== portrait) { portrait = p; sc.setPortrait(p) }
     // only a real size change re-fits (and resets the view); the HUD's width changes with its text
     if (w !== lastW || h !== lastH) { lastW = w; lastH = h; sc.resize(w, h) }
+    // a re-fit puts the camera back at the overview: keep the tour's shot instead
+    const poseAfter = sc.cameraPose()
+    const moved = Math.abs(poseAfter.radius - poseBefore.radius) + Math.abs(poseAfter.tx - poseBefore.tx) + Math.abs(poseAfter.theta - poseBefore.theta) > 1e-6
+    if (moved && shotNow) { camTween?.stop(); camTween = null; sc.applyPose(sc.shotPose(shotNow)) }
   })
   ro.observe(wrap)
   ro.observe(hud.el)
@@ -1077,6 +1139,14 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
     renderer: sc.renderer,
     partCount: () => ({ placed: pieces.size, loose: loose.size, inScene: sc.board.children.filter(c => c.children.length === 2 && c.type === 'Group' && c !== sc.battery).length }),
     rc: clockRC,
+    /** Page position of a board-local point at any height (for drag checks that aim the visible part). */
+    projectPoint: (x: number, y: number, z: number) => { const p = sc.project(x, y, z); const rect = canvas.getBoundingClientRect(); return { x: p.x + rect.left, y: p.y + rect.top } },
+    lift: LIFT,
+    restY: REST_Y,
+    lockSlot: () => drag?.lockSlot ?? null,
+    slotCenter: (id: SlotId) => SLOTS[id].center,
+    cameraPose: () => sc.cameraPose(),
+    shotPose: (name: ShotName) => sc.shotPose(name === 'overview' ? null : SHOTS[name]),
     pieceY: (id: SlotId) => pieces.get(id)?.view.group.position.y ?? null,
     pieceSquash: (id: SlotId) => pieces.get(id)?.view.inner.scale.y ?? null,
   }
@@ -1084,6 +1154,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
   active = {
     unmount() {
       cancelFrame(loop)
+      sc.controls.removeEventListener('start', onOrbitStart)
       for (const t of timers) clearTimeout(t)
       for (const a of anims) a.stop()
       ro.disconnect()

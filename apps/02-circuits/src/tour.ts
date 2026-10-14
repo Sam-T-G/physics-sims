@@ -3,6 +3,7 @@
 // Every fact cites the OpenStax page it came from (University Physics Vol 2, printed page numbers).
 
 import type { BoardResult, Part, Slots, SlotId } from './board'
+import type { CameraShot } from './scene'
 import { reading, sig3, exact } from './format'
 
 export type Setup = { emf: number; r: number; slots: Slots; batteryIn?: boolean; capV?: number }
@@ -19,6 +20,29 @@ export type RcView = { t: number; tau: number; I0: number; V0: number; Voc: numb
 export type GuideState = { emf: number; r: number; slots: Slots; batteryIn: boolean; b: BoardResult; rc: RcView | null; selected: SlotId | null }
 export type Spot = { slots?: SlotId[]; chips?: string[]; hud?: boolean; battery?: boolean; time?: boolean; rows?: string[] }
 export type Ctx = { s: GuideState; before: number; after: number; pick: number }
+/**
+ * Camera shots, in board-local units (board.ts: battery at x = −4.6, R₁ at (−2.65, −2.1), the branches between
+ * B (x = −0.55) and C (x = 2.75), R₅ at x = 4.6). az swings the camera around the board, + toward R₅;
+ * el is the height above the board. 'overview' is the whole board from the front.
+ */
+export const SHOTS = {
+  battery: { x: -3.9, z: 0, span: 3.8, az: -0.55, el: 0.78 },
+  loop: { x: 0, z: 0, span: 10.5, az: 0.18, el: 1.2 },
+  'loop-left': { x: -3.1, z: -0.9, span: 5.6, az: -0.35, el: 0.9 },
+  R1: { x: -2.65, z: -2.0, span: 3.4, az: -0.25, el: 0.85 },
+  series: { x: 0, z: 0, span: 11, az: 0.3, el: 1.12 },
+  R5: { x: 4.3, z: 0, span: 4.0, az: 0.55, el: 0.8 },
+  'cap-R5': { x: 4.4, z: 0, span: 3.6, az: 0.6, el: 0.8 },
+  parallel: { x: 1.1, z: -0.55, span: 5.0, az: 0.12, el: 1.05 },
+  'parallel-wide': { x: 0.1, z: -0.8, span: 7.2, az: -0.1, el: 1.0 },
+  branches: { x: 1.1, z: 0.25, span: 4.2, az: 0.2, el: 0.9 },
+  'cap-R3': { x: 1.1, z: -1.3, span: 4.0, az: -0.2, el: 0.85 },
+} satisfies Record<string, CameraShot>
+export type ShotName = keyof typeof SHOTS | 'overview'
+
+/** The number a step measures, shown before → after in the reveal, styled like the HUD tile of that quantity. */
+export type Readout = { label: string; unit: 'A' | 'V' | 'W' | 's' | 'C'; kind: 'I' | 'V' | 'P' | 'T' | 'Q' }
+
 export type Eq = { tex: string | ((s: GuideState) => string); ref: string }
 export type Step = {
   id: string
@@ -31,6 +55,10 @@ export type Step = {
   /** Keep the board as the student left it when this holds, instead of applying setup. */
   keepIf?: (s: GuideState) => boolean
   spot?: Spot
+  /** Where the camera flies when the step opens, and (optional) when the answer appears. */
+  cam?: ShotName
+  camAfter?: ShotName
+  readout?: Readout
   predict?: { q: string; options: string[]; answer: (c: Ctx) => number }
   task?: { text: string; done: (s: GuideState) => boolean; auto: Action[]; progress?: (s: GuideState) => number }
   /** The number this step is about, read once when the step starts and again when the task is done. */
@@ -71,6 +99,7 @@ export const STEPS: Step[] = [
   // ---------------- 1. Charge ----------------
   {
     id: 'charge', chapter: 0, title: 'Everything starts with charge',
+    cam: 'overview',
     setup: { emf: 12, r: 0, slots: {} },
     body: () => p(
       'Charge is a property of matter, like mass. It comes in two types, positive and negative. Two charges of the same type push each other apart, and opposite types pull together.',
@@ -81,6 +110,8 @@ export const STEPS: Step[] = [
   },
   {
     id: 'push', chapter: 0, title: 'The battery pushes charge',
+    cam: 'battery',
+    camAfter: 'overview',
     setup: { emf: 12, r: 0, slots: {} },
     spot: { battery: true, hud: true, slots: ['R1', 'R2', 'R3', 'R4', 'R5'] },
     body: () => p(
@@ -97,6 +128,7 @@ export const STEPS: Step[] = [
   // ---------------- 2. Current ----------------
   {
     id: 'current', chapter: 1, title: 'Current is charge per second',
+    cam: 'loop',
     setup: { emf: 12, r: 0, slots: {} },
     body: () => p(
       'Current is how much charge passes a point each second. One amp (A) is one coulomb of charge per second.',
@@ -109,6 +141,8 @@ export const STEPS: Step[] = [
   },
   {
     id: 'short', chapter: 1, title: 'A loop of plain wire',
+    cam: 'loop',
+    camAfter: 'battery',
     setup: { emf: 12, r: 0, slots: {} },
     spot: { slots: ['R1', 'R2', 'R5'], chips: ['wire'], hud: true, rows: ['current'] },
     body: () => p('Plain wire has 0 Ω of resistance, so a wire adds nothing that slows charge down. Right now the battery is perfect: its internal resistance <i>r</i> is 0.'),
@@ -125,6 +159,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'real-battery', chapter: 1, title: 'A real battery',
+    cam: 'battery',
     setup: { emf: 12, r: 0, slots: { R1: W, R2: W, R5: W } },
     spot: { battery: true, hud: true, rows: ['current', 'terminal'] },
     body: () => p('The battery\'s internal resistance, <i>r</i>, sits inside the battery, in series with everything you connect to the battery (Section 10.1).'),
@@ -139,6 +174,7 @@ export const STEPS: Step[] = [
   // ---------------- 3. Resistors ----------------
   {
     id: 'resistor', chapter: 2, title: 'What a resistor is',
+    cam: 'R1',
     spot: { chips: ['2', '4', '6', '12'] },
     body: () => p(
       'A resistor limits the current (p. 376). Resistance <i>R</i> says how many volts it takes to push one amp through the resistor. One ohm (Ω) is one volt per amp (p. 372).',
@@ -152,6 +188,9 @@ export const STEPS: Step[] = [
   },
   {
     id: 'add-resistor', chapter: 2, title: 'Add a resistor',
+    cam: 'R1',
+    camAfter: 'loop-left',
+    readout: { label: 'Battery current', unit: 'A', kind: 'I' },
     setup: { emf: 12, r: 0.5, slots: { R1: W, R2: W, R5: W } },
     spot: { slots: ['R1'], chips: ['4'], hud: true, rows: ['current'] },
     body: s => p(`The board is a short circuit again: wire everywhere, with <i>r</i> = ${exact(s.r)} Ω inside the battery. The battery current is ${A(s.b.I)}.`),
@@ -165,6 +204,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'ohm', chapter: 2, title: 'Ohm\'s law on one resistor',
+    cam: 'R1',
     setup: { emf: 12, r: 0.5, slots: { R1: R(4), R2: W, R5: W } },
     keepIf: s => isRes(s, 'R1') && s.b.status === 'ok',
     spot: { slots: ['R1'], hud: true, rows: ['part'] },
@@ -177,6 +217,9 @@ export const STEPS: Step[] = [
   },
   {
     id: 'turn-up', chapter: 2, title: 'Turn R₁ up',
+    cam: 'R1',
+    camAfter: 'loop-left',
+    readout: { label: 'Voltage across R₁', unit: 'V', kind: 'V' },
     setup: { emf: 12, r: 0.5, slots: { R1: R(4), R2: W, R5: W } },
     spot: { slots: ['R1'], hud: true, rows: ['part', 'terminal'] },
     body: () => p('A bigger R₁ means a smaller current. That part is expected. Here\'s a trickier one.'),
@@ -190,6 +233,8 @@ export const STEPS: Step[] = [
   },
   {
     id: 'heat', chapter: 2, title: 'Resistors make heat',
+    cam: 'R1',
+    readout: { label: 'Heat in R₁', unit: 'W', kind: 'P' },
     setup: { emf: 12, r: 0.5, slots: { R1: R(20), R2: W, R5: W } },
     keepIf: s => isRes(s, 'R1') && ohmsOf(s, 'R1') > 2 && s.r > 0 && s.r <= 0.5 && s.b.status === 'ok',
     spot: { slots: ['R1'], rows: ['part', 'energy'] },
@@ -207,6 +252,8 @@ export const STEPS: Step[] = [
   // ---------------- 4. Series ----------------
   {
     id: 'series', chapter: 3, title: 'Two resistors in a row',
+    cam: 'series',
+    readout: { label: 'Battery current', unit: 'A', kind: 'I' },
     setup: { emf: 12, r: 0, slots: { R1: R(4), R2: W, R5: W } },
     spot: { slots: ['R5'], chips: ['4'], hud: true, rows: ['series', 'current'] },
     body: s => p(`R₁ (4 Ω) is the only resistor, and the battery current is ${A(s.b.I)}. Parts in a row like this, with one path through all of them, are <b>in series</b>.`),
@@ -220,6 +267,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'series-share', chapter: 3, title: 'Same current, shared voltage',
+    cam: 'series',
     setup: { emf: 12, r: 0, slots: { R1: R(4), R2: W, R5: R(4) } },
     keepIf: s => isRes(s, 'R1') && isRes(s, 'R5') && s.b.status === 'ok' && s.r === 0,
     spot: { slots: ['R1', 'R5'], hud: true, rows: ['loop'] },
@@ -232,6 +280,9 @@ export const STEPS: Step[] = [
   },
   {
     id: 'series-gap', chapter: 3, title: 'Take one out',
+    cam: 'R1',
+    camAfter: 'series',
+    readout: { label: 'Current through R₅', unit: 'A', kind: 'I' },
     setup: { emf: 12, r: 0, slots: { R1: R(4), R2: W, R5: R(4) } },
     spot: { slots: ['R1', 'R5'], hud: true, rows: ['loop'] },
     body: () => p('Here are R₁ and R₅ in series again, 4 Ω each.'),
@@ -247,6 +298,8 @@ export const STEPS: Step[] = [
   // ---------------- 5. Parallel ----------------
   {
     id: 'parallel', chapter: 4, title: 'Two paths side by side',
+    cam: 'parallel',
+    readout: { label: 'Battery current', unit: 'A', kind: 'I' },
     setup: { emf: 12, r: 0, slots: { R1: R(2), R2: R(6), R5: W } },
     spot: { slots: ['R3'], chips: ['6'], hud: true, rows: ['parallel', 'series'] },
     body: s => p(`R₂, R₃ and R₄ sit side by side between junctions B and C. Branches like these are <b>in parallel</b>: charge can take any filled branch. Right now only R₂ (6 Ω) is filled, and the battery current is ${A(s.b.I)}.`),
@@ -260,6 +313,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'parallel-split', chapter: 4, title: 'Same voltage, split current',
+    cam: 'parallel',
     setup: { emf: 12, r: 0, slots: { R1: R(2), R2: R(6), R3: R(6), R5: W } },
     keepIf: s => isRes(s, 'R2') && isRes(s, 'R3') && ohmsOf(s, 'R2') === ohmsOf(s, 'R3') && s.b.status === 'ok' && s.b.bypassed.length === 0,
     spot: { slots: ['R2', 'R3'], rows: ['parallel', 'junction'] },
@@ -273,6 +327,9 @@ export const STEPS: Step[] = [
   },
   {
     id: 'parallel-remove', chapter: 4, title: 'Take a branch away',
+    cam: 'parallel',
+    camAfter: 'parallel-wide',
+    readout: { label: 'Current through R₂', unit: 'A', kind: 'I' },
     setup: { emf: 12, r: 0, slots: { R1: R(2), R2: R(6), R3: R(2), R5: W } },
     spot: { slots: ['R2', 'R3'], hud: true, rows: ['parallel', 'loop'] },
     body: s => p(`R₁ = 2 Ω in series, then R₂ = 6 Ω and R₃ = 2 Ω in parallel. R₂ carries ${A(slotI(s, 'R2'))}.`),
@@ -286,6 +343,9 @@ export const STEPS: Step[] = [
   },
   {
     id: 'parallel-wire', chapter: 4, title: 'A wire in a branch',
+    cam: 'branches',
+    camAfter: 'parallel',
+    readout: { label: 'Current through R₂', unit: 'A', kind: 'I' },
     setup: { emf: 12, r: 0, slots: { R1: R(2), R2: R(6), R3: R(6), R5: W } },
     spot: { slots: ['R4'], chips: ['wire'], hud: true, rows: ['parallel', 'junction'] },
     body: s => p(`R₂ and R₃ (6 Ω each) are in parallel. Each carries ${A(slotI(s, 'R2'))}.`),
@@ -301,6 +361,7 @@ export const STEPS: Step[] = [
   // ---------------- 6. Capacitors ----------------
   {
     id: 'capacitor', chapter: 5, title: 'What a capacitor is',
+    cam: 'R5',
     setup: { emf: 12, r: 0, slots: { R1: R(4), R2: W }, batteryIn: true, capV: 0 },
     spot: { chips: ['cap'] },
     body: () => p(
@@ -315,6 +376,9 @@ export const STEPS: Step[] = [
   },
   {
     id: 'cap-in', chapter: 5, title: 'Drop in an empty capacitor',
+    cam: 'R5',
+    camAfter: 'series',
+    readout: { label: 'Battery current', unit: 'A', kind: 'I' },
     setup: { emf: 12, r: 0, slots: { R1: R(4), R2: W }, batteryIn: true, capV: 0 },
     spot: { slots: ['R5'], chips: ['cap'], hud: true, time: true },
     body: () => p('R₅ is empty, so the circuit is open and no current flows. The capacitor in the tray is empty: 0 V across the plates.'),
@@ -328,6 +392,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'cap-fill', chapter: 5, title: 'Watch the capacitor fill',
+    cam: 'cap-R5',
     setup: { emf: 12, r: 0, slots: { R1: R(4), R2: W, R5: CAP() }, batteryIn: true, capV: 0 },
     keepIf: s => isCap(s, 'R5') && isRes(s, 'R1') && s.batteryIn && !full(s),
     spot: { slots: ['R5'], hud: true, time: true, rows: ['rc-current', 'rc-tau'] },
@@ -342,6 +407,9 @@ export const STEPS: Step[] = [
   },
   {
     id: 'cap-slower', chapter: 5, title: 'More resistance, slower filling',
+    cam: 'loop-left',
+    camAfter: 'cap-R5',
+    readout: { label: 'Time constant τ', unit: 's', kind: 'T' },
     setup: { emf: 12, r: 0, slots: { R1: R(4), R2: W, R5: CAP() }, batteryIn: true, capV: 0 },
     spot: { slots: ['R1'], hud: true, time: true, rows: ['rc-tau'] },
     body: s => p(`The capacitor is empty again and filling through R₁ = 4 Ω. Right now <i>τ</i> = ${sec(s.b.cap?.tau ?? 0)}.`),
@@ -355,6 +423,8 @@ export const STEPS: Step[] = [
   },
   {
     id: 'cap-dial', chapter: 5, title: 'Change C on a full capacitor',
+    cam: 'cap-R5',
+    readout: { label: 'Capacitor voltage', unit: 'V', kind: 'V' },
     setup: { emf: 12, r: 0, slots: { R1: R(4), R2: W, R5: CAP(0.5) }, batteryIn: true, capV: 12 },
     spot: { slots: ['R5'], hud: true, time: true },
     body: s => p(`The capacitor is full: ${V(s.b.cap?.Vc ?? 0)} across 0.5 F, holding <i>Q</i> = <i>CV</i> = ${reading(s.b.cap?.q ?? 0, 'C')}.`),
@@ -370,6 +440,8 @@ export const STEPS: Step[] = [
   // ---------------- 7. A second path ----------------
   {
     id: 'cap-branch', chapter: 6, title: 'A capacitor beside a resistor',
+    cam: 'cap-R3',
+    camAfter: 'parallel-wide',
     setup: { emf: 12, r: 0, slots: { R1: R(2), R2: R(6), R3: CAP(), R5: W }, batteryIn: true, capV: 0 },
     spot: { slots: ['R2', 'R3'], hud: true, time: true },
     body: () => p('The empty capacitor sits in R₃, in parallel with R₂ (6 Ω). R₁ = 2 Ω is in series with both.'),
@@ -382,6 +454,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'cap-branch-v', chapter: 6, title: 'How full is full?',
+    cam: 'cap-R3',
     setup: { emf: 12, r: 0, slots: { R1: R(2), R2: R(6), R3: CAP(), R5: W }, batteryIn: true, capV: 9 },
     keepIf: s => isCap(s, 'R3') && isRes(s, 'R1') && isRes(s, 'R2') && full(s),
     spot: { slots: ['R2', 'R3'], hud: true },
@@ -398,6 +471,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'cap-branch-tau', chapter: 6, title: 'Which R goes in τ = RC?',
+    cam: 'parallel-wide',
     setup: { emf: 12, r: 0, slots: { R1: R(2), R2: R(6), R3: CAP(), R5: W }, batteryIn: true, capV: 9 },
     keepIf: s => isCap(s, 'R3') && isRes(s, 'R1') && isRes(s, 'R2') && s.b.status === 'ok',
     spot: { hud: true, rows: ['rc-tau'] },
@@ -409,6 +483,9 @@ export const STEPS: Step[] = [
   },
   {
     id: 'cap-cutoff', chapter: 6, title: 'Cut the battery off',
+    cam: 'parallel-wide',
+    camAfter: 'cap-R3',
+    readout: { label: 'Capacitor current', unit: 'A', kind: 'I' },
     setup: { emf: 12, r: 0, slots: { R1: R(2), R2: R(6), R3: CAP(), R5: W }, batteryIn: true, capV: 9 },
     spot: { slots: ['R1', 'R2', 'R3'], hud: true, time: true },
     body: () => p('The capacitor is full at 9 V, beside R₂.'),
@@ -422,6 +499,9 @@ export const STEPS: Step[] = [
   },
   {
     id: 'cap-shorted', chapter: 6, title: 'A wire beside the capacitor',
+    cam: 'branches',
+    camAfter: 'cap-R3',
+    readout: { label: 'Charge on the capacitor', unit: 'C', kind: 'Q' },
     setup: { emf: 12, r: 0, slots: { R1: R(2), R2: R(6), R3: CAP(), R5: W }, batteryIn: true, capV: 9 },
     spot: { slots: ['R3', 'R4'], chips: ['wire'], hud: true, time: true },
     body: s => p(`The capacitor is full again, holding ${reading(s.b.cap?.q ?? 0, 'C')} at ${V(s.b.cap?.Vc ?? 0)}.`),
@@ -437,6 +517,9 @@ export const STEPS: Step[] = [
   // ---------------- 8. Emptying a capacitor ----------------
   {
     id: 'discharge', chapter: 7, title: 'Switch the battery out',
+    cam: 'series',
+    camAfter: 'cap-R5',
+    readout: { label: 'Capacitor current', unit: 'A', kind: 'I' },
     setup: { emf: 12, r: 0, slots: { R1: R(4), R2: W, R5: CAP() }, batteryIn: true, capV: 12 },
     spot: { slots: ['R5'], hud: true, time: true, rows: ['rc-current', 'rc-charge'] },
     body: () => p('The capacitor in R₅ is full at 12 V, in series with R₁ = 4 Ω. "Discharge: battery out" in the Current over time box swaps the battery for a plain wire.'),
@@ -450,6 +533,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'done', chapter: 7, title: 'You built it all from charge',
+    cam: 'overview',
     body: () => p(
       'Charge is conserved, so current that flows into a junction flows out (junction rule). Voltage goes up across the battery and down across the parts, adding to zero around a loop (loop rule). Resistors set how much current flows, and capacitors store charge and set how fast the current changes.',
       'Every number on this board comes from those rules. Now try your own circuits: every equation in the notebook updates as you build.',

@@ -58,6 +58,11 @@ export type SocketView = {
 
 export type BatteryMood = 'happy' | 'sleepy' | 'yikes'
 
+/** Where the camera looks from: the point it looks at, and a sphere around that point (three.js Spherical). */
+export type CameraPose = { tx: number; ty: number; tz: number; radius: number; theta: number; phi: number }
+/** A framed view of part of the board, in board-local units. az: swing around the board (rad, + toward R₅); el: height above the board (rad). */
+export type CameraShot = { x: number; z: number; span: number; az: number; el: number }
+
 export type Scene = {
   renderer: THREE.WebGLRenderer
   camera: THREE.PerspectiveCamera
@@ -69,6 +74,12 @@ export type Scene = {
   resetView(): void
   /** Screen space (CSS px) kept clear above the board, e.g. under a HUD. The board fits in what is left. */
   setInsetTop(px: number): void
+  /**
+   * The board point that appears directly under a board-local point from the camera: the spot on the plane
+   * at height `ground` that the line from the camera through (x, y, z) hits. A part lifted above the board
+   * looks like it is over this spot, not over the spot straight below the part.
+   */
+  groundUnder(x: number, y: number, z: number, ground?: number): Pt | null
   /** Board-local point under a pointer (NDC), on the plane pieces slide in. */
   boardPoint(ndc: THREE.Vector2, y?: number): Pt | null
   pickPiece(ndc: THREE.Vector2, pieces: readonly PieceView[]): PieceView | null
@@ -80,6 +91,12 @@ export type Scene = {
   updateDots(wireI: ArrayLike<number>, slotI: Partial<Record<SlotId, number>>, arches: Partial<Record<SlotId, boolean>>, dt: number, reduced: boolean): void
   setBatteryMood(mood: BatteryMood, blink: boolean): void
   setPortrait(portrait: boolean): void
+  /** The camera's pose right now. */
+  cameraPose(): CameraPose
+  /** The pose that frames a shot, or the whole board for null. */
+  shotPose(shot: CameraShot | null): CameraPose
+  /** Put the camera at a pose (used every frame while the app flies the camera). */
+  applyPose(p: CameraPose): void
   render(): void
   dispose(): void
 }
@@ -291,6 +308,7 @@ export function createScene(canvas: HTMLCanvasElement, pixelRatio: number): Scen
   const raycaster = new THREE.Raycaster()
   const plane = new THREE.Plane()
   const hitPoint = new THREE.Vector3()
+  const sightRay = new THREE.Ray()
   let fitDistance = 18
   let portrait = false
   let width = 1, height = 1
@@ -308,7 +326,7 @@ export function createScene(canvas: HTMLCanvasElement, pixelRatio: number): Scen
     const dVert = (D * Math.sin(elev) + 1.2) / (2 * t)
     const dHorz = W / (2 * t * aspect)
     fitDistance = Math.max(dVert, dHorz) * 1.1
-    controls.minDistance = fitDistance * 0.6
+    controls.minDistance = fitDistance * 0.28
     controls.maxDistance = fitDistance * 1.5
     // Fit to the area below the inset, then widen the view upward to the full canvas: the board sits lower
     // on screen at the same size, and projection, picking and labels all stay consistent.
@@ -324,7 +342,35 @@ export function createScene(canvas: HTMLCanvasElement, pixelRatio: number): Scen
     controls.update()
   }
 
+
   const toNDCRay = (ndc: THREE.Vector2) => raycaster.setFromCamera(ndc, camera)
+
+  const OVERVIEW_EL = 0.95
+  const sph = new THREE.Spherical()
+  const tmpV = new THREE.Vector3()
+  const cameraPose = (): CameraPose => {
+    tmpV.copy(camera.position).sub(controls.target)
+    sph.setFromVector3(tmpV)
+    return { tx: controls.target.x, ty: controls.target.y, tz: controls.target.z, radius: sph.radius, theta: sph.theta, phi: sph.phi }
+  }
+  const shotPose = (shot: CameraShot | null): CameraPose => {
+    if (!shot) return { tx: 0, ty: 0, tz: 0.15, radius: fitDistance, theta: 0, phi: Math.PI / 2 - OVERVIEW_EL }
+    board.updateMatrixWorld()
+    const t = board.localToWorld(new THREE.Vector3(shot.x, 0.25, shot.z))
+    // fit a circle of diameter span inside the narrower of the two view angles
+    const v = THREE.MathUtils.degToRad(camera.fov) / 2
+    const h = Math.atan(Math.tan(v) * camera.aspect)
+    const radius = THREE.MathUtils.clamp((shot.span / 2) / Math.tan(Math.min(v, h)) * 1.08 + 0.8, controls.minDistance, controls.maxDistance)
+    // stay inside the orbit limits so the controls never snap the camera on the next update
+    const phi = THREE.MathUtils.clamp(Math.PI / 2 - shot.el, controls.minPolarAngle, controls.maxPolarAngle)
+    return { tx: t.x, ty: t.y, tz: t.z, radius, theta: shot.az, phi }
+  }
+  const applyPose = (p: CameraPose) => {
+    controls.target.set(p.tx, p.ty, p.tz)
+    sph.set(p.radius, p.phi, p.theta)
+    camera.position.setFromSpherical(sph).add(controls.target)
+    camera.lookAt(controls.target)
+  }
 
   return {
     renderer,
@@ -346,6 +392,15 @@ export function createScene(canvas: HTMLCanvasElement, pixelRatio: number): Scen
       insetTop = px
       fit()
       resetView()
+    },
+    groundUnder(x, y, z, ground = REST_Y) {
+      board.updateMatrixWorld()
+      const w = board.localToWorld(new THREE.Vector3(x, y, z))
+      sightRay.set(camera.position, w.sub(camera.position).normalize())
+      plane.set(new THREE.Vector3(0, 1, 0), -ground)
+      if (!sightRay.intersectPlane(plane, hitPoint)) return null
+      const local = board.worldToLocal(hitPoint.clone())
+      return { x: local.x, z: local.z }
     },
     boardPoint(ndc, y = REST_Y) {
       toNDCRay(ndc)
@@ -415,6 +470,9 @@ export function createScene(canvas: HTMLCanvasElement, pixelRatio: number): Scen
       fit()
       resetView()
     },
+    cameraPose: () => cameraPose(),
+    shotPose: shot => shotPose(shot),
+    applyPose: p => applyPose(p),
     render() {
       controls.update()
       renderer.render(scene, camera)
