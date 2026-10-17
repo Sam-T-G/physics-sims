@@ -58,7 +58,7 @@ export function fluxUniformLoop(E: Vec3, area: number, normal: Vec3): number {
 
 /**
  * Analytic flux through a sphere of radius r centered on q, for the exponent toggle:
- * E(r) · 4πr² with E = k q / rⁿ, i.e. 4π k q r^(2−n). Equals q/ε₀ (to ~6e-11 relative, see constants)
+ * E(r) · 4πr² with E = k q / rⁿ, i.e. 4π k q r^(2−n). Equals q/ε₀ (to ~4e-12 relative, see constants)
  * at n = 2 and is ∝ 1/r at n = 3.
  */
 export function fluxCenteredSphere(q: number, r: number, exponent = 2): number {

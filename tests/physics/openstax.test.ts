@@ -86,7 +86,7 @@ describe('openstax', () => {
   // Example 6.3 "Electric Flux through a Plane, Integral Method", Ch 6.1 Electric Flux
   // https://openstax.org/books/university-physics-volume-2/pages/6-1-electric-flux
   // Inputs: uniform E = 10 N/C, angle between E and the surface unit normal = 30°, planar area 6.0 m².
-  // Printed: Φ = 52 N·m²/C (E·A·cos 30° = 51.96..., the print rounds to 2 sig figs but is within 7e-4).
+  // Printed: Φ = 52 N·m²/C (E·A·cos 30° = 51.96..., the print rounds to 2 sig figs but is within 7.5e-4).
   // Open flat surface, so this goes through fluxUniformLoop; the closed-surface case is Example 6.5 below.
   it('OpenStax Vol 2 Ch 6 worked example: Example 6.3, flux through a plane in a uniform field (fluxUniformLoop)', () => {
     const E0 = 10

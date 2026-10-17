@@ -25,9 +25,33 @@ export function exact(x: number): string {
 export const SUB: Record<string, string> = { R1: 'R₁', R2: 'R₂', R3: 'R₃', R4: 'R₄', R5: 'R₅' }
 export const SUB_DIGIT: Record<string, string> = { R1: '₁', R2: '₂', R3: '₃', R4: '₄', R5: '₅' }
 
-/** A reading with a friendlier unit for small values: 0.00372 A reads 3.72 mA. Equations keep the book's SI units. */
-export function reading(x: number, unit: string): string {
-  const scalable = unit === 'A' || unit === 'V' || unit === 'W' || unit === 'C'
-  if (scalable && Number.isFinite(x) && x !== 0 && Math.abs(x) < 0.1) return `${sig3(x * 1000)} m${unit}`
-  return `${sig3(x)} ${unit}`
+/**
+ * Whether a value reads in milli-units (below 0.1). Pass what the same readout used last time (`was`) for a little
+ * hysteresis: a live value hovering near 0.1 then keeps its unit (it switches at 0.095 going down, 0.105 going up).
+ */
+export function useMilli(x: number, was?: boolean): boolean {
+  if (!Number.isFinite(x) || x === 0) return false
+  const a = Math.abs(x)
+  return was === undefined ? a < 0.1 : was ? a < 0.105 : a < 0.095
+}
+
+/** Amps, volts, watts and coulombs read in milli- or kilo-units; ohms, farads and seconds never scale. */
+export const scalable = (unit: string) => unit === 'A' || unit === 'V' || unit === 'W' || unit === 'C'
+
+/**
+ * The unit prefix a reading takes: 'm' below 0.1 (with `useMilli`'s hysteresis), 'k' once the value would print
+ * 1000 or more (11520 W reads 11.5 kW, so a big reading keeps 3 figures), '' otherwise. `scale` turns the SI value
+ * into the printed one.
+ */
+export function unitPrefix(x: number, unit: string, was?: boolean): { prefix: '' | 'm' | 'k'; scale: number } {
+  if (!scalable(unit) || !Number.isFinite(x)) return { prefix: '', scale: 1 }
+  if (useMilli(x, was)) return { prefix: 'm', scale: 1000 }
+  if (Math.abs(x) >= 999.5) return { prefix: 'k', scale: 1e-3 }
+  return { prefix: '', scale: 1 }
+}
+
+/** A reading with a friendlier unit: 0.00372 A reads 3.72 mA, 11520 W reads 11.5 kW. Equations keep the book's SI units. */
+export function reading(x: number, unit: string, was?: boolean): string {
+  const { prefix, scale } = unitPrefix(x, unit, was)
+  return `${sig3(x * scale)} ${prefix}${unit}`
 }

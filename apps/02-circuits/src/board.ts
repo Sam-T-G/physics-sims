@@ -106,7 +106,11 @@ export const SLOT_LENGTH = 1.8
 export const BATTERY_CENTER: Pt = { x: LEFT, z: 0 }
 
 export type SlotReading = { I: number; V: number; P: number }
-export type Check = { id: string; eq: string; label: string; ok: boolean }
+/**
+ * A book equation checked against the full solve. `solved` is the full solve's side of the comparison, shown next to
+ * the check mark ("4.11 Ω"); `key` names the quantity (freeze.ts) so a prediction can cover it.
+ */
+export type Check = { id: string; eq: string; label: string; ok: boolean; solved?: { v: number; unit: 'A' | 'V' | 'Ω' | 'W'; key: string } }
 
 export type BoardResult = {
   /** ok: current flows. open: a gap somewhere stops it. short: nothing but wire from + to −. */
@@ -302,31 +306,35 @@ export function solveBoard(input: BoardInput): BoardResult {
   const checks: Check[] = []
   if (status !== 'open') {
     const read = (id: SlotId) => readings[id]
-    checks.push({ id: 'current', eq: '10.1', label: 'I = ε/(R_eq + r) matches the full solve', ok: close(I, solveI) })
-    checks.push({ id: 'terminal', eq: '10.1', label: 'V_terminal = ε − Ir', ok: closeV(Vt, solveVt) })
-    checks.push({
-      id: 'series',
-      eq: '10.2',
-      label: 'R₁ and R₅ carry the same current',
-      ok: close(read('R1')!.I, solveI) && close(read('R5')!.I, solveI),
-    })
-    const laneVs = filledLanes.map(id => V[SLOTS[id].a]! - V[SLOTS[id].b]!)
-    checks.push({
-      id: 'parallel',
-      eq: '10.3',
-      label: 'every branch has the same voltage across it',
-      ok: laneVs.every(v => closeV(v, laneVs[0]!)),
-    })
+    checks.push({ id: 'current', eq: '10.1', label: 'I = ε/(R_eq + r) against the battery current from the full solve', ok: close(I, solveI), solved: { v: solveI, unit: 'A', key: 'I' } })
+    checks.push({ id: 'terminal', eq: '10.1', label: 'V_terminal = ε − Ir against the terminal voltage from the full solve', ok: closeV(Vt, solveVt), solved: { v: solveVt, unit: 'V', key: 'V' } })
+    // the load's resistance as the full solve sees it: the terminal voltage over the battery current
+    const loadR = solveVt / solveI
+    checks.push({ id: 'series', eq: '10.2', label: 'R_eq = R₁ + R_P + R₅ against V_terminal ÷ I from the full solve', ok: close(Req, loadR), solved: { v: loadR, unit: 'Ω', key: 'R' } })
     const laneSum = filledLanes.reduce((s, id) => s + read(id)!.I, 0)
-    checks.push({ id: 'junction', eq: '10.4', label: 'current into B = current out of B', ok: close(laneSum, solveI) })
+    // the branches together as the full solve sees them: the voltage from B to C over the current through the branches
+    const laneR = Vp / laneSum
+    checks.push({ id: 'parallel', eq: '10.3', label: '1/R_P = 1/R₂ + 1/R₃ + 1/R₄ against V_BC ÷ (I₂ + I₃ + I₄) from the full solve', ok: close(Rp, laneR), solved: { v: laneR, unit: 'Ω', key: 'R@P' } })
+    checks.push({ id: 'junction', eq: '10.4', label: 'I = ε/(R_eq + r) into B against the branch currents out of B from the full solve', ok: close(I, laneSum), solved: { v: laneSum, unit: 'A', key: 'I' } })
     // One loop: up through the battery, then down R₁, across the parallel set (B to C), down R₅.
     const loop = emf - I * r - read('R1')!.V - Vp - read('R5')!.V
     checks.push({ id: 'loop', eq: '10.5', label: 'ε − Ir − V₁ − V_P − V₅ = 0', ok: closeV(loop, 0) })
     const heat = SLOT_IDS.reduce((s, id) => s + (readings[id]?.P ?? 0), 0) + Pr
-    checks.push({ id: 'energy', eq: '9.12, 9.13', label: 'battery power Iε = I²r + every I²R', ok: close(Pemf, heat) })
+    checks.push({ id: 'energy', eq: '9.12, 9.13', label: 'the power from the emf, Iε, against I²r plus every I²R from the full solve', ok: close(Pemf, heat), solved: { v: heat, unit: 'W', key: 'P' } })
   }
 
   return { status, idealShort, gaps, bypassed, emf, r, Rp, Req, I, Vt, Pemf, Pr, Pload, slots: readings, wireI, V, Vp, deadWire, checks, batteryOut: out }
+}
+
+/** Whether nodes a and b connect through the board without the capacitor's own slot (the battery counts as a link). */
+function joined(slots: Slots, capId: SlotId, a: number, b: number): boolean {
+  const up = Array.from({ length: NODE_COUNT }, (_, k) => k)
+  const find = (k: number): number => { while (up[k] !== k) { up[k] = up[up[k]!]!; k = up[k]! } return k }
+  const link = (p: number, q: number) => { up[find(p)] = find(q) }
+  link(0, 1); link(1, 2)
+  for (const [p, q] of WIRES) link(p, q)
+  for (const id of SLOT_IDS) if (id !== capId && slots[id]) link(SLOTS[id].a, SLOTS[id].b)
+  return find(a) === find(b)
 }
 
 /** Every element of the board, with the capacitor drawn the way `cap` says. */
@@ -391,18 +399,20 @@ function solveRC(input: BoardInput): BoardResult {
   if (!live('R4')) { deadWire[6] = 1; deadWire[12] = 1 }
   const V = new Float64Array(NODE_COUNT)
   const readings: Partial<Record<SlotId, SlotReading>> = {}
-  const empty = (): BoardResult => ({
+  /** A board with no finite solve right now. `Rth` is what the capacitor sees: Infinity (no loop) or 0 (shorted). */
+  const empty = (Rth = Infinity): BoardResult => ({
     status, idealShort, gaps, bypassed, emf, r, Rp, Req, I: idealShort ? Infinity : 0, Vt: idealShort ? NaN : emf,
     Pemf: idealShort ? Infinity : 0, Pr: 0, Pload: 0, slots: readings, wireI, V, Vp: 0, deadWire, checks: [], batteryOut: out,
-    cap: { id: capId, C, Vc, q: C * Vc, Ic: 0, Voc: Vc, Rth: Infinity, tau: Infinity, snapped },
+    cap: { id: capId, C, Vc, q: C * Vc, Ic: 0, Voc: Vc, Rth, tau: Rth * C, snapped },
   })
   let snapped = false
   if (idealShort) {
-    // the short runs through the wire branch, which also shorts the capacitor: it is empty
+    // the short always runs through a wire branch, and that wire also sits straight across the capacitor (which is
+    // in a branch beside it): the capacitor is shorted, R = 0 and τ = 0, and it is empty
     snapped = Vc !== 0
     Vc = 0
     for (const id of SLOT_IDS) if (slots[id]) readings[id] = { I: bypassed.includes(id) || id === capId ? 0 : Infinity, V: 0, P: 0 }
-    return empty()
+    return empty(0)
   }
 
   const a = SLOTS[capId].a, b = SLOTS[capId].b
@@ -410,12 +420,17 @@ function solveRC(input: BoardInput): BoardResult {
   const open = boardElements(slots, emf, r, capId, { mode: 'open' })
   const so = solveCircuit(NODE_COUNT, open.els)
   const zeroV = REL_ZERO * Math.max(1, emf, Math.abs(Vc))
-  const Voc = so.ok ? clean(so.V[a]! - so.V[b]!, zeroV) : 0
+  // No loop: nothing outside the capacitor's own slot joins its two plates, so no charge can move on or off.
+  // It keeps its voltage forever (R = ∞, τ = ∞). Decided from the wiring, not from a tiny solved current.
+  const loopless = !joined(slots, capId, a, b)
+  const Voc = loopless ? Vc : so.ok ? clean(so.V[a]! - so.V[b]!, zeroV) : 0
   // the resistance it sees: no push, 1 V in the slot
   const test = boardElements(slots, 0, r, capId, { mode: 'source', V: 1 })
   const st = solveCircuit(NODE_COUNT, test.els)
-  const Itest = st.ok ? -st.I[test.index[capId]!]! : 0
-  const rawR = Math.abs(Itest) < 1e-9 ? Infinity : -1 / Itest
+  const Itest = st.ok && !loopless ? -st.I[test.index[capId]!]! : 0
+  // a 1 V test current under 1 µA (over 1 MΩ, far past any path on this board) or one flowing the wrong way is
+  // solver noise, never a real resistance
+  const rawR = Math.abs(Itest) < 1e-6 ? Infinity : -1 / Itest < 0 ? Infinity : -1 / Itest
   // A plain wire straight across the capacitor leaves only 0.1 µΩ stand-ins in its path: the true R is 0 Ω.
   // The smallest real path on this board is r = 0.05 Ω, far above this cut.
   const Rth = rawR < 1e-3 ? 0 : rawR
@@ -468,12 +483,13 @@ function solveRC(input: BoardInput): BoardResult {
   if (status !== 'open' || Ic !== 0) {
     const read = (id: SlotId) => readings[id] ?? { I: 0, V: 0, P: 0 }
     const laneSum = filledLanes.reduce((s, id) => s + read(id).I, 0)
-    checks.push({ id: 'junction', eq: '10.4', label: 'current into B = current out of B, right now', ok: close(laneSum, I, laneScale) })
+    checks.push({ id: 'junction', eq: '10.4', label: 'current into B = current out of B, right now', ok: close(laneSum, I, laneScale), solved: { v: laneSum, unit: 'A', key: 'I' } })
     if (status !== 'open') {
       const loop = emf - I * r - read('R1').V - Vp - read('R5').V
       checks.push({ id: 'loop', eq: '10.5', label: 'ε − Ir − V₁ − V_P − V₅ = 0, right now', ok: closeV(loop, 0) })
     }
-    if (Number.isFinite(Rth) && Rth > 0) checks.push({ id: 'rc', eq: '10.10', label: 'current into the capacitor = (V heading − V now)/R', ok: close(Ic, (Voc - Vc) / Rth, 1e-3) })
+    // Eq 10.10 in its general form, (V_end − V_C)/R = I₀e^(−t/τ), against the capacitor current from the full solve
+    if (Number.isFinite(Rth) && Rth > 0) checks.push({ id: 'rc', eq: '10.10', label: 'I_C = (V_end − V_C)/R against the capacitor current from the full solve', ok: close((Voc - Vc) / Rth, Ic, 1e-3), solved: { v: Ic, unit: 'A', key: 'Ic' } })
     const heat = SLOT_IDS.reduce((s, id) => s + (slots[id]?.kind === 'resistor' ? readings[id]!.P : 0), 0) + Pr
     const sink = heat + Ic * Vc
     checks.push({ id: 'energy', eq: '9.12, 9.13', label: 'battery power = heat in every resistor + power going into the capacitor', ok: close(Pemf, sink, Math.max(1e-3, heat, Math.abs(Ic * Vc))) })
@@ -485,24 +501,29 @@ function solveRC(input: BoardInput): BoardResult {
 }
 
 /** The worked examples from OpenStax Ch 10 that fit this board. */
-export type BookValue = { label: string; value: string; of: (b: BoardResult) => number; unit: string }
+export type BookValue = {
+  label: string; value: string; of: (b: BoardResult) => number; unit: string
+  /** Printed under the table, one line per note: why the book's printed value and the sim's differ. */
+  note?: string
+}
 export type Preset = { id: string; title: string; note: string; input: BoardInput; book: BookValue[] }
 
 export const PRESETS: readonly Preset[] = [
   {
     id: 'ex10-1',
     title: 'Example 10.1',
-    note: 'A 12.00 V battery with r = 0.100 Ω driving a 10.00 Ω load.',
+    note: 'A 12.00 V battery with r = 0.100 Ω and one 10.00 Ω resistor.',
     input: { emf: 12, r: 0.1, slots: { R1: { kind: 'resistor', ohms: 10 }, R2: { kind: 'wire' }, R5: { kind: 'wire' } } },
     book: [
       { label: 'I', value: '1.188 A', unit: 'A', of: b => b.I },
-      { label: 'V_terminal', value: '11.90 V', unit: 'V', of: b => b.Vt },
+      // Book p. 411 prints 11.90 V, but 12.00 − (1.188)(0.100) = 11.881 V
+      { label: 'V_terminal', value: '11.90 V', unit: 'V', of: b => b.Vt, note: 'The book prints 11.90 V, but the math gives 11.88 V.' },
     ],
   },
   {
     id: 'ex10-3',
     title: 'Example 10.3',
-    note: '1.00, 2.00 and 2.00 Ω in parallel on a 3.00 V source. The book calls them R₁, R₂, R₃; here they sit in the three branch slots.',
+    note: '1.00, 2.00 and 2.00 Ω in parallel on a 3.00 V battery.',
     input: {
       emf: 3,
       r: 0,
@@ -524,7 +545,7 @@ export const PRESETS: readonly Preset[] = [
   {
     id: 'ex10-4',
     title: 'Example 10.4',
-    note: 'R₁ = 1.00 Ω in series with 6.00 Ω ∥ 13.00 Ω on 12.0 V.',
+    note: 'R₁ = 1.00 Ω in series with R₂ = 6.00 Ω and R₃ = 13.00 Ω in parallel, on 12.0 V.',
     input: {
       emf: 12,
       r: 0,

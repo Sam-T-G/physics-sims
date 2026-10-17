@@ -325,3 +325,78 @@ describe('RC review regressions (2026-10-11)', () => {
     for (const c of b.checks) expect(c.ok, c.id).toBe(true)
   })
 })
+
+import { statusFor } from '../../apps/02-circuits/src/boardbar'
+describe('capacitor with no loop, or shorted (audit #5)', () => {
+  const cap = (farads: number) => ({ kind: 'capacitor' as const, farads })
+  const res = (ohms: number) => ({ kind: 'resistor' as const, ohms })
+  const wire = { kind: 'wire' as const }
+  it('nothing joins the plates: the capacitor keeps its charge, R = τ = ∞', () => {
+    for (const slots of [{ R1: cap(0.5), R2: res(6) }, { R5: cap(0.5), R2: res(6), R3: wire }, { R5: cap(0.5), R2: res(6) }]) {
+      const b = solveBoard({ emf: 12, r: 0, capV: 4, slots })
+      expect(b.cap!.Rth, JSON.stringify(slots)).toBe(Infinity)
+      expect(b.cap!.tau, JSON.stringify(slots)).toBe(Infinity)
+      expect(b.cap!.Vc).toBe(4)
+      expect(b.cap!.Voc).toBe(4)
+      expect(b.cap!.Ic).toBe(0)
+      expect(statusFor(b, slots, 0, false).html).toContain('no loop to fill or empty through')
+    }
+  })
+  it('an ideal short through a wire branch shorts the capacitor beside it: R = 0, τ = 0', () => {
+    const b = solveBoard({ emf: 12, r: 0, capV: 0, slots: { R1: wire, R2: cap(0.5), R3: wire, R5: wire } })
+    expect(b.cap!.Rth).toBe(0)
+    expect(b.cap!.tau).toBe(0)
+  })
+})
+
+describe('status line words (audit #79, #89, #90, #138)', () => {
+  const res = (ohms: number) => ({ kind: 'resistor' as const, ohms })
+  const wire = { kind: 'wire' as const }
+  it('an open circuit is calm; a short stays red', () => {
+    const open = { R2: res(6), R5: wire }
+    expect(statusFor(solveBoard({ emf: 12, r: 0, slots: open }), open, 0, false).warn).toBe(false)
+    const short = { R1: wire, R2: wire, R5: wire }
+    expect(statusFor(solveBoard({ emf: 12, r: 0.5, slots: short }), short, 0.5, false).warn).toBe(true)
+  })
+  it('names the wire that steals the current', () => {
+    const s = { R1: res(2), R2: res(6), R3: wire, R5: wire }
+    expect(statusFor(solveBoard({ emf: 12, r: 0, slots: s }), s, 0, false).html).toBe('The wire in R₃ carries all the current, so R₂ gets 0 A.')
+    const s2 = { R1: res(2), R2: res(6), R3: wire, R4: wire, R5: wire }
+    expect(statusFor(solveBoard({ emf: 12, r: 0, slots: s2 }), s2, 0, false).html).toBe('The wires in R₃ and R₄ carry all the current, so R₂ gets 0 A.')
+  })
+  it('a discharge with the battery out names the resistors in the loop', () => {
+    const s = { R1: res(4), R2: res(2), R5: { kind: 'capacitor' as const, farads: 0.5 } }
+    const b = solveBoard({ emf: 12, r: 0, capV: 12, batteryIn: false, slots: s })
+    expect(statusFor(b, s, 0, false)).toEqual({ html: 'Battery out: the capacitor empties through R₁ and R₂.', warn: false })
+  })
+})
+
+describe('book example notes (audit #20)', () => {
+  it('Example 10.1 explains the printed 11.90 V next to the 11.88 V its own numbers give', () => {
+    const ex = PRESETS.find(p => p.id === 'ex10-1')!
+    const vt = ex.book.find(v => v.label === 'V_terminal')!
+    expect(vt.value).toBe('11.90 V')
+    expect(vt.note).toContain('11.88 V')
+    const b = solveBoard(ex.input)
+    expect(b.Vt.toFixed(2)).toBe('11.88')
+    expect(12 - 1.188 * 0.1).toBeCloseTo(11.8812, 4)
+  })
+})
+
+describe('check marks compare a book formula with the full solve (audit #42)', () => {
+  it('Example 10.4: the series and parallel checks carry the solve\'s own R_eq and R_P', () => {
+    const b = solveBoard(preset('ex10-4'))
+    const byId = new Map(b.checks.map(c => [c.id, c]))
+    expectRel(byId.get('series')!.solved!.v, b.Req, 1e-4)
+    expectRel(byId.get('parallel')!.solved!.v, b.Rp, 1e-4)
+    expectRel(byId.get('junction')!.solved!.v, b.I, 1e-4)
+    expectRel(byId.get('current')!.solved!.v, b.I, 1e-4)
+    expect(byId.get('series')!.solved!.unit).toBe('Ω')
+  })
+  it('a capacitor board shows the Eq 10.10 check with the solved capacitor current', () => {
+    const b = solveBoard({ emf: 12, r: 0, capV: 3, slots: { R1: { kind: 'resistor', ohms: 4 }, R2: { kind: 'wire' }, R5: { kind: 'capacitor', farads: 0.5 } } })
+    const rc = b.checks.find(c => c.id === 'rc')!
+    expect(rc.ok).toBe(true)
+    expectRel(rc.solved!.v, (12 - 3) / 4, 1e-6)
+  })
+})

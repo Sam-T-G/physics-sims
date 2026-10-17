@@ -56,7 +56,8 @@ export type SocketView = {
   ring: THREE.Mesh
 }
 
-export type BatteryMood = 'happy' | 'sleepy' | 'yikes'
+/** 'awake' is the plain face (round eyes, flat mouth) the battery wears while a prediction is open. */
+export type BatteryMood = 'happy' | 'sleepy' | 'yikes' | 'awake'
 
 /** Where the camera looks from: the point it looks at, and a sphere around that point (three.js Spherical). */
 export type CameraPose = { tx: number; ty: number; tz: number; radius: number; theta: number; phi: number }
@@ -74,6 +75,8 @@ export type Scene = {
   resetView(): void
   /** Screen space (CSS px) kept clear above the board, e.g. under a HUD. The board fits in what is left. */
   setInsetTop(px: number): void
+  /** Screen space (CSS px) kept clear under the board, e.g. under the board bar. */
+  setInsetBottom(px: number): void
   /**
    * The board point that appears directly under a board-local point from the camera: the spot on the plane
    * at height `ground` that the line from the camera through (x, y, z) hits. A part lifted above the board
@@ -87,8 +90,14 @@ export type Scene = {
   makePiece(part: Part): PieceView
   /** Screen position (CSS px within the canvas) of a board-local point. */
   project(x: number, y: number, z: number): { x: number; y: number; visible: boolean }
-  /** Per-path currents (A): WIRES order, then SLOT_IDS order. dt in seconds. */
-  updateDots(wireI: ArrayLike<number>, slotI: Partial<Record<SlotId, number>>, arches: Partial<Record<SlotId, boolean>>, dt: number, reduced: boolean): void
+  /**
+   * Per-path currents (A): WIRES order, then SLOT_IDS order. `batteryI`: the current through the plain wire that
+   * stands in for a switched-out battery, from − to + (null: the battery is in, and its own path shows no dots).
+   * dt in seconds.
+   */
+  updateDots(wireI: ArrayLike<number>, slotI: Partial<Record<SlotId, number>>, arches: Partial<Record<SlotId, boolean>>, dt: number, reduced: boolean, batteryI?: number | null): void
+  /** 0: the battery sits in the circuit. 1: it is switched out, so a plain wire joins its terminals and the battery waits, ghosted, beside the rail. */
+  setBatteryOut(k: number): void
   setBatteryMood(mood: BatteryMood, blink: boolean): void
   setPortrait(portrait: boolean): void
   /** The camera's pose right now. */
@@ -276,24 +285,39 @@ export function createScene(canvas: HTMLCanvasElement, pixelRatio: number): Scen
     c.beginPath()
     if (mood === 'happy') c.arc(128, 88, 22, 0.15 * Math.PI, 0.85 * Math.PI)
     else if (mood === 'sleepy') c.arc(128, 104, 8, 0, Math.PI * 2)
+    else if (mood === 'awake') { c.moveTo(110, 102); c.lineTo(146, 102) }
     else { c.moveTo(100, 108); c.quadraticCurveTo(114, 94, 128, 108); c.quadraticCurveTo(142, 122, 156, 108) }
     c.stroke()
     faceTex.needsUpdate = true
   }
 
+  // Battery out: a plain wire across the battery's two terminals (the book's discharge circuit), and the battery
+  // itself slides in off the rail, ghosted.
+  const batteryWire = new THREE.Mesh(unitCyl, wireMat)
+  {
+    const p = NODES[0]!, q = NODES[2]!
+    batteryWire.scale.y = Math.hypot(q.x - p.x, q.z - p.z)
+    batteryWire.position.set((p.x + q.x) / 2, WIRE_Y, (p.z + q.z) / 2)
+    batteryWire.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(q.x - p.x, 0, q.z - p.z).normalize())
+    batteryWire.castShadow = true
+    batteryWire.visible = false
+    board.add(batteryWire)
+  }
+
   // Current dots: one instanced mesh, a fixed number of dots per path, phase advanced by the solved current.
-  type Path = { a: Pt; b: Pt; len: number; n: number; start: number; phase: number; speed: number; slot?: SlotId }
+  type Path = { a: Pt; b: Pt; len: number; n: number; start: number; phase: number; speed: number; slot?: SlotId; battery?: boolean }
   const paths: Path[] = []
   const SPACING = 0.34
   let total = 0
-  const addPath = (a: Pt, b: Pt, slot?: SlotId) => {
+  const addPath = (a: Pt, b: Pt, slot?: SlotId, battery = false) => {
     const len = Math.hypot(b.x - a.x, b.z - a.z)
     const n = Math.max(1, Math.round(len / SPACING))
-    paths.push({ a, b, len, n, start: total, phase: Math.random(), speed: 0, slot })
+    paths.push({ a, b, len, n, start: total, phase: Math.random(), speed: 0, slot, battery })
     total += n
   }
   for (const [a, b] of WIRES) addPath(NODES[a]!, NODES[b]!)
   for (const id of SLOT_IDS) addPath(NODES[SLOTS[id].a]!, NODES[SLOTS[id].b]!, id)
+  addPath(NODES[0]!, NODES[2]!, undefined, true)
   const dotGeo = track(new THREE.SphereGeometry(0.068, 12, 8))
   const dotMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff }))
   const dots = new THREE.InstancedMesh(dotGeo, dotMat, total)
@@ -313,9 +337,10 @@ export function createScene(canvas: HTMLCanvasElement, pixelRatio: number): Scen
   let portrait = false
   let width = 1, height = 1
   let insetTop = 0
+  let insetBottom = 0
 
   const fit = () => {
-    const avail = Math.max(120, height - insetTop)
+    const avail = Math.max(120, height - insetTop - insetBottom)
     const aspect = width / avail
     camera.aspect = aspect
     // board footprint in world space after the portrait turn
@@ -328,9 +353,9 @@ export function createScene(canvas: HTMLCanvasElement, pixelRatio: number): Scen
     fitDistance = Math.max(dVert, dHorz) * 1.1
     controls.minDistance = fitDistance * 0.28
     controls.maxDistance = fitDistance * 1.5
-    // Fit to the area below the inset, then widen the view upward to the full canvas: the board sits lower
-    // on screen at the same size, and projection, picking and labels all stay consistent.
-    if (insetTop > 0) camera.setViewOffset(width, avail, 0, -insetTop, width, height)
+    // Fit to the area between the insets, then widen the view to the full canvas: the board sits between the HUD
+    // and the board bar at the same size, and projection, picking and labels all stay consistent.
+    if (insetTop > 0 || insetBottom > 0) camera.setViewOffset(width, avail, 0, -insetTop, width, height)
     else camera.clearViewOffset()
     camera.updateProjectionMatrix()
   }
@@ -339,6 +364,22 @@ export function createScene(canvas: HTMLCanvasElement, pixelRatio: number): Scen
     camera.position.set(0, Math.sin(elev) * fitDistance, Math.cos(elev) * fitDistance)
     controls.target.set(0, 0, 0.15)
     camera.lookAt(controls.target)
+    controls.update()
+  }
+  let fitted = false
+  /**
+   * Fit the board to a new size or inset. A camera at the overview (or before the first fit) goes to the new
+   * overview; a view the student orbited to stays where it is, with its distance kept inside the new limits.
+   */
+  const refit = () => {
+    const before = cameraPose()
+    const home = shotPose(null)
+    const atHome = !fitted || (Math.abs(before.radius - home.radius) < 1e-3 * home.radius && Math.abs(before.theta) < 1e-3
+      && Math.abs(before.phi - home.phi) < 1e-3 && Math.hypot(before.tx - home.tx, before.tz - home.tz) < 1e-3)
+    fit()
+    fitted = true
+    if (atHome) { resetView(); return }
+    applyPose({ ...before, radius: THREE.MathUtils.clamp(before.radius, controls.minDistance, controls.maxDistance) })
     controls.update()
   }
 
@@ -383,15 +424,18 @@ export function createScene(canvas: HTMLCanvasElement, pixelRatio: number): Scen
       if (w === 0 || h === 0) return
       width = w; height = h
       renderer.setSize(w, h, false)
-      fit()
-      resetView()
+      refit()
     },
     resetView,
     setInsetTop(px) {
       if (Math.abs(px - insetTop) < 1) return
       insetTop = px
-      fit()
-      resetView()
+      refit()
+    },
+    setInsetBottom(px) {
+      if (Math.abs(px - insetBottom) < 1) return
+      insetBottom = px
+      refit()
     },
     groundUnder(x, y, z, ground = REST_Y) {
       board.updateMatrixWorld()
@@ -427,14 +471,22 @@ export function createScene(canvas: HTMLCanvasElement, pixelRatio: number): Scen
       const v = board.localToWorld(new THREE.Vector3(x, y, z)).project(camera)
       return { x: (v.x * 0.5 + 0.5) * width, y: (-v.y * 0.5 + 0.5) * height, visible: v.z < 1 }
     },
-    updateDots(wireI, slotI, arches, dt, reduced) {
+    updateDots(wireI, slotI, arches, dt, reduced, batteryI = null) {
+      const currentOf = (p: Path, k: number) => (p.battery ? batteryI ?? undefined : p.slot ? slotI[p.slot] : wireI[k])
+      // Speed ∝ I. When the biggest current would run past the top speed, every dot slows by the same factor, so
+      // the speeds still compare (the junction rule still reads in the dots: as many arrive at B as leave it).
+      let biggest = 0
+      paths.forEach((p, k) => { const I = currentOf(p, k); if (I !== undefined && Number.isFinite(I)) biggest = Math.max(biggest, Math.abs(I)) })
+      const TOP = 4.5, PER_AMP = 0.85, FLOOR = 0.15
+      const scale = biggest * PER_AMP > TOP ? TOP / (biggest * PER_AMP) : 1
       paths.forEach((p, k) => {
-        const I = p.slot ? slotI[p.slot] : wireI[k]
-        const present = p.slot ? I !== undefined : true
+        const I = currentOf(p, k)
+        const present = p.battery || p.slot ? I !== undefined : true
         const cur = I ?? 0
-        // Speed ∝ I, capped so a huge current still reads as motion. Eased toward the target so a
-        // change reads as the current picking up or slowing down.
-        const target = Math.max(-4.5, Math.min(4.5, cur * 0.85))
+        // a tiny current still creeps along; eased toward the target so a change reads as the current picking up
+        // or slowing down
+        let target = cur * PER_AMP * scale
+        if (cur !== 0 && Math.abs(target) < FLOOR) target = Math.sign(cur) * FLOOR
         p.speed += (target - p.speed) * (1 - Math.exp(-dt * (reduced ? 30 : 5)))
         p.phase = (p.phase + (p.speed * dt) / p.len) % 1
         if (p.phase < 0) p.phase += 1
@@ -456,6 +508,17 @@ export function createScene(canvas: HTMLCanvasElement, pixelRatio: number): Scen
       })
       dots.instanceMatrix.needsUpdate = true
       if (dots.instanceColor) dots.instanceColor.needsUpdate = true
+    },
+    setBatteryOut(k) {
+      batteryWire.visible = k > 0.02
+      const ghost = k > 0.02
+      battery.traverse(o => {
+        const m = (o as THREE.Mesh).material as THREE.Material | undefined
+        if (!m) return
+        m.transparent = ghost || m === face.material
+        m.opacity = 1 - 0.62 * k
+        m.depthWrite = !ghost && m !== face.material
+      })
     },
     setBatteryMood(m, blink) {
       if (m === mood && blink === blinking) return
@@ -482,6 +545,8 @@ export function createScene(canvas: HTMLCanvasElement, pixelRatio: number): Scen
       dots.dispose()
       for (const d of disposables) d.dispose()
       renderer.dispose()
+      // hand the GL context back now instead of waiting for garbage collection (browsers cap live contexts)
+      renderer.forceContextLoss()
     },
   }
 

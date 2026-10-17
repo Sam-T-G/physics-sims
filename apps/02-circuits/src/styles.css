@@ -30,6 +30,7 @@
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+  overflow: clip;
   background: radial-gradient(120% 90% at 20% 0%, var(--c-sky-2) 0%, var(--c-sky) 55%, #e2e6ff 100%);
   color: var(--c-ink);
   font-family: var(--font);
@@ -52,14 +53,20 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  /* the floating HUD sizes itself to the board column, not the window */
+  container: stage / inline-size;
 }
 .sim02 .sim02-canvas-wrap {
   position: relative;
   flex: 1;
   min-height: 0;
   touch-action: none;
+  /* clip, not hidden: a clipped box is no scroll container, so focusing a slot button can't scroll the board sideways */
   overflow: hidden;
+  overflow: clip;
   cursor: grab;
+  /* the board bar sizes itself to the board box, not the window */
+  container: board / inline-size;
 }
 .sim02 .sim02-canvas-wrap:active { cursor: grabbing; }
 .sim02 .sim02-canvas-wrap.is-grabbable { cursor: grab; }
@@ -90,11 +97,16 @@
 .sim02 .sim02-label-top { display: flex; gap: 6px; align-items: baseline; }
 .sim02 .sim02-label b { font-weight: 900; color: var(--c-grape-deep); }
 .sim02 .sim02-label-val { font-weight: 800; }
-.sim02 .sim02-label-read { color: var(--c-ink-2); font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; }
+.sim02 .sim02-label-read { min-width: 15ch; text-align: center; color: var(--c-ink-2); font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; } /* holds its widest size through a curve */
 .sim02 .sim02-label-empty { color: var(--c-ink-2); font-weight: 600; }
-.sim02 .sim02-label.is-empty { background: rgba(255, 253, 251, 0.55); box-shadow: none; }
+/* as solid as a filled label: "empty" stays readable over the rail and its dots */
+.sim02 .sim02-label.is-empty { background: rgba(255, 253, 251, 0.92); box-shadow: none; }
 .sim02 .sim02-label.is-empty .sim02-label-top { gap: 5px; }
 .sim02 .sim02-label.is-linked { background: var(--c-butter-soft); scale: 1.08; }
+/* an open label (selected or pointed at) sits on top, and the labels it would cover fade out until it closes */
+.sim02 .sim02-label:is(.is-sel, .is-linked) { z-index: 1; }
+.sim02 :is(.sim02-label, .sim02-batt-label) { transition: background 0.2s, scale 0.25s var(--spring), opacity 0.15s; }
+.sim02 :is(.sim02-label, .sim02-batt-label).is-tucked { opacity: 0; }
 .sim02 .sim02-junction, .sim02 .sim02-terminal {
   position: absolute; left: 0; top: 0;
   translate: -50% -50%;
@@ -137,6 +149,9 @@
   box-shadow: 0 0 0 3px rgba(255, 209, 92, 0.7);
   animation: sim02-breathe 1.4s ease-in-out infinite;
 }
+/* holding a part during the tour: the step's slot gets the grape ring, the other slots step back */
+.sim02.is-holding .sim02-slotbtn.is-do { background: rgba(255, 209, 92, 0.3); box-shadow: 0 0 0 3px var(--c-grape-deep); }
+.sim02.is-holding .sim02-slots:has(.is-do) .sim02-slotbtn:not(.is-do) { opacity: 0.5; animation: none; }
 @keyframes sim02-breathe { 50% { scale: 1.08; } }
 
 .sim02 .sim02-status {
@@ -144,6 +159,7 @@
   left: 50%; bottom: 10px;
   translate: -50% 8px;
   margin: 0;
+  box-sizing: border-box;
   width: max-content;
   max-width: min(560px, calc(100% - 32px));
   padding: 9px 16px 10px;
@@ -157,16 +173,133 @@
   transition: opacity 0.25s, translate 0.45s var(--spring);
 }
 .sim02 .sim02-status.is-on { opacity: 1; translate: -50% 0; }
+/* a new message: the old one fades out (120 ms), then the new one fades in */
+.sim02 .sim02-status.is-on.is-swap { opacity: 0; transition-duration: 0.12s; }
 .sim02 .sim02-status.is-warn { background: #fff0f2; color: var(--c-straw-deep); }
-
-.sim02 .sim02-recenter {
-  position: absolute; right: 14px; top: 14px;
-  padding: 7px 14px;
-  border: 0; border-radius: var(--r-pill);
-  background: rgba(255, 253, 251, 0.8);
+/* the status pill sits above the board bar, never under it */
+.sim02 .sim02-status { bottom: 60px; }
+/* the loop's replay badge takes the status line's spot for about two seconds (the status line steps back meanwhile) */
+.sim02 .sim02-replay {
+  position: absolute; left: 50%; bottom: 60px; z-index: 1;
+  translate: -50% 8px;
+  margin: 0; box-sizing: border-box;
+  width: max-content; max-width: min(480px, calc(100% - 32px));
+  padding: 8px 14px 9px;
+  border-radius: var(--r-m);
+  background: var(--c-tint-2); color: var(--c-grape-deep);
   box-shadow: var(--shadow-soft);
-  font-size: 13px; font-weight: 800;
+  font-size: 13.5px; font-weight: 800; text-align: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s, translate 0.45s var(--spring);
+}
+.sim02 .sim02-replay.is-on { opacity: 1; translate: -50% 0; }
+.sim02 .sim02-canvas-wrap.is-replay .sim02-status { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .sim02 .sim02-replay { transition: none; translate: -50% 0; } }
+
+/* ---------- board bar: Reset view, the capacitor clock pill, Clear the board (Undo) ---------- */
+.sim02 .sim02-boardbar {
+  position: absolute; left: 8px; right: 8px; bottom: 4px; z-index: 2;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px;
+  pointer-events: none;
+  transition: opacity 0.2s, translate 0.3s var(--spring);
+}
+.sim02 .sim02-boardbar > * { pointer-events: auto; }
+.sim02 .sim02-boardbar .bb-left { justify-self: start; display: flex; }
+.sim02 .sim02-boardbar .bb-right { justify-self: end; display: flex; }
+.sim02 .sim02-boardbar .bb-clock { display: flex; justify-content: center; }
+/* while the value dial is docked in the band, the bar steps aside (it is also inert) */
+.sim02 .sim02-boardbar.is-under { opacity: 0; translate: 0 8px; }
+.sim02 .sim02-boardbar.is-under * { pointer-events: none; }
+.sim02 .bb-btn {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  height: 40px; padding: 0 15px 0 12px;
+  border: 0; border-radius: var(--r-pill);
+  background: var(--c-paper);
+  box-shadow: var(--shadow-soft);
+  font-size: 13.5px; font-weight: 800; color: var(--c-ink);
+  white-space: nowrap;
   cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s, scale 0.3s var(--spring), opacity 0.2s;
+}
+.sim02 .bb-btn:hover:not(:disabled) { background: var(--c-butter-soft); }
+.sim02 .bb-btn:active:not(:disabled) { scale: 0.95; }
+.sim02 .bb-btn svg { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.sim02 .sim02-recenter svg { color: var(--c-grape-deep); }
+/* at the overview there is nothing to reset: the button goes quiet (the text stays readable) */
+.sim02 .sim02-recenter.is-home { background: rgba(255, 253, 251, 0.45); box-shadow: none; }
+/* Clear and Undo are one button: the two labels share one cell, so the width holds through the swap */
+.sim02 .sim02-clear-board { display: inline-grid; place-items: center; }
+.sim02 .sim02-clear-board > span { grid-area: 1 / 1; display: inline-flex; align-items: center; gap: 7px; transition: opacity 0.15s; }
+.sim02 .sim02-clear-board .bb-lab-clear svg { color: var(--c-ink-2); }
+.sim02 .sim02-clear-board .bb-lab-undo, .sim02 .sim02-clear-board.is-undo .bb-lab-clear { visibility: hidden; opacity: 0; }
+.sim02 .sim02-clear-board.is-undo .bb-lab-undo { visibility: visible; opacity: 1; }
+.sim02 .sim02-clear-board.is-undo { background: var(--c-butter-soft); box-shadow: var(--shadow-soft), inset 0 0 0 2px var(--c-butter); }
+/* disabled (during the tour): flat and pale, but opaque, so the board's rail never shows through the label */
+.sim02 .sim02-clear-board:disabled { background: var(--c-paper); box-shadow: inset 0 0 0 1.5px var(--c-tint-2); color: #a39cc0; cursor: default; }
+.sim02 .sim02-clear-board:disabled .bb-lab-clear svg { color: inherit; }
+.sim02 .bb-ring { position: relative; width: 20px; height: 20px; display: grid; place-items: center; }
+.sim02 .bb-ring svg.ring { position: absolute; inset: 0; width: 20px; height: 20px; rotate: -90deg; }
+.sim02 .bb-ring svg.ring circle { fill: none; stroke: var(--c-grape); stroke-width: 2.4; }
+.sim02 .bb-ring svg.ico { width: 12px; height: 12px; color: var(--c-grape-deep); }
+
+/* the capacitor clock pill */
+.sim02 .sim02-tp-pill {
+  display: flex; align-items: center; gap: 4px;
+  height: 40px; padding: 4px; box-sizing: border-box;
+  border-radius: var(--r-pill);
+  background: #e8f6ee;
+  box-shadow: var(--shadow-soft), inset 0 0 0 1.5px #cfe8da;
+  color: #2f7a54;
+  transition: opacity 0.3s, translate 0.45s var(--spring);
+}
+.sim02 .sim02-tp-pill:not(.is-on) { opacity: 0; translate: 0 10px; pointer-events: none; }
+.sim02 .sim02-tp-pill button {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  height: 32px; padding: 0 12px;
+  border: 0; border-radius: var(--r-pill); background: transparent;
+  font-size: 13.5px; font-weight: 800; color: #2f7a54; white-space: nowrap; cursor: pointer;
+  transition: background 0.15s, scale 0.3s var(--spring);
+}
+.sim02 .sim02-tp-pill button:hover:not(:disabled) { background: var(--c-butter-soft); color: var(--c-ink); }
+.sim02 .sim02-tp-pill button:active:not(:disabled) { scale: 0.95; }
+.sim02 .sim02-tp-pill button:disabled { opacity: 0.45; cursor: default; }
+/* Play and Pause take the same width, so the buttons beside Play stay put */
+.sim02 .sim02-tp-pill [data-tp="play"] { min-width: 6.2em; background: #2f7a54; color: #fff; }
+.sim02 .sim02-tp-pill [data-tp="play"]:hover:not(:disabled) { background: #276a48; color: #fff; }
+.sim02 .sim02-tp-pill svg { width: 15px; height: 15px; flex: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.sim02 .sim02-tp-pill svg.is-solid { fill: currentColor; stroke: none; }
+.sim02 .sim02-tp-t { display: block; min-width: 11ch; padding: 0 8px 0 4px; font-size: 13px; font-weight: 800; color: var(--c-ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sim02 .sim02-tp-track { display: none; width: 64px; height: 4px; margin-right: 10px; border-radius: var(--r-pill); background: #cfe8da; overflow: hidden; }
+.sim02 .sim02-tp-track i { display: block; height: 100%; background: #2f7a54; transform-origin: 0 50%; transform: scaleX(0); }
+
+/* touch targets: small buttons get a hit area at least 44 px tall */
+.sim02 :is(.sim02-seg, .sim02-tp-pill) button::before, .sim02 .bb-btn::before {
+  content: ''; position: absolute; left: -2px; right: -2px; top: 50%; height: max(100%, 44px); translate: 0 -50%; border-radius: inherit;
+}
+.sim02 .sim02-seg button { position: relative; }
+
+@container board (max-width: 799px) {
+  .sim02 .sim02-tp-t { display: none; }
+}
+@container board (min-width: 1100px) {
+  .sim02 .sim02-tp-track { display: block; }
+}
+/* compact board: Reset view and the pill on the left, Clear on the right; icons with short words; bigger targets */
+@container board (max-width: 639px) {
+  .sim02 .sim02-boardbar { display: flex; gap: 8px; }
+  .sim02 .sim02-boardbar .bb-right { margin-left: auto; }
+  .sim02 .bb-word { display: none; }
+  .sim02 .bb-btn { height: 44px; padding: 0 14px 0 12px; }
+  .sim02 .sim02-recenter { width: 44px; padding: 0; }
+  .sim02 .sim02-tp-pill { height: 44px; }
+  .sim02 .sim02-tp-pill button { height: 36px; padding: 0 12px; }
+  .sim02 .sim02-tp-pill [data-tp="play"] { min-width: 0; }
+  .sim02 .sim02-status { bottom: 58px; }
+  /* the whole sentence always shows (a cut-off line would hide the fix, like "Raise r or remove a wire."); tighter
+     padding and line height keep a two-line message low, and the board labels already step around the pill */
+  .sim02 .sim02-status { padding: 6px 12px 7px; line-height: 1.3; text-wrap: balance; }
 }
 
 /* The value dial that pops up over a tapped resistor. */
@@ -189,6 +322,30 @@
 }
 .sim02 .sim02-pop.is-below { translate: -50% 18px; transform-origin: 50% 0; }
 .sim02 .sim02-pop.is-below::after { bottom: auto; top: -7px; }
+.sim02 .sim02-pop.is-right { translate: 20px -50%; transform-origin: 0 50%; }
+.sim02 .sim02-pop.is-right::after { left: -7px; bottom: auto; top: 50%; translate: 0 -50%; }
+.sim02 .sim02-pop.is-left { translate: calc(-100% - 20px) -50%; transform-origin: 100% 50%; }
+.sim02 .sim02-pop.is-left::after { left: auto; right: -7px; bottom: auto; top: 50%; translate: 0 -50%; }
+/* phones: the dial is one row in the board bar's band */
+.sim02 .sim02-pop.is-docked {
+  left: 8px; right: 8px; top: auto; bottom: 4px;
+  translate: none; transform-origin: 50% 100%;
+  display: flex; align-items: center; justify-content: space-between; gap: 4px;
+  min-width: 0; height: 44px; padding: 0 2px; box-sizing: border-box;
+  border-radius: var(--r-pill);
+}
+.sim02 .sim02-pop.is-docked::after { display: none; }
+.sim02 .sim02-pop.is-docked > .sim02-pop-name { margin-left: 12px; }
+.sim02 .sim02-pop.is-docked .sim02-dial { gap: 4px; }
+.sim02 .sim02-pop.is-docked .sim02-dial button { width: 40px; height: 40px; font-size: 22px; }
+.sim02 .sim02-pop.is-docked .sim02-dial .sim02-pop-name { margin: 0 1px 0 8px; font-size: 15px; }
+.sim02 .sim02-pop.is-docked .sim02-dial output { margin-right: 4px; }
+.sim02 .sim02-pop.is-docked .sim02-dial output { min-width: 5.6ch; font-size: 17px; text-align: left; }
+.sim02 .sim02-pop.is-docked :is(.sim02-pop-remove, .sim02-pop-empty) { position: relative; height: 40px; padding: 0 10px; white-space: nowrap; }
+/* Empty and Remove get a 44 px tall hit area in both dials; in the floating dial they sit 44 px apart, center to center */
+.sim02 .sim02-pop :is(.sim02-pop-remove, .sim02-pop-empty) { position: relative; }
+.sim02 .sim02-pop :is(.sim02-pop-remove, .sim02-pop-empty)::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: max(100%, 44px); translate: 0 -50%; border-radius: inherit; }
+.sim02 .sim02-pop:not(.is-docked) .sim02-pop-empty + .sim02-pop-remove { margin-top: 5px; }
 .sim02 .sim02-pop-name { margin: 0; font-weight: 900; color: var(--c-grape-deep); }
 .sim02 .sim02-dial { display: flex; align-items: center; gap: 8px; }
 .sim02 .sim02-dial output { min-width: 64px; text-align: center; font-size: 22px; font-weight: 900; font-variant-numeric: tabular-nums; }
@@ -207,6 +364,14 @@
   font-size: 13px; font-weight: 800; color: var(--c-straw-deep); cursor: pointer;
 }
 .sim02 .sim02-pop-remove:hover { background: #fff0f2; }
+.sim02 .sim02-pop-empty {
+  border: 0; padding: 6px 12px; border-radius: var(--r-pill);
+  background: var(--c-butter-soft); box-shadow: inset 0 0 0 1.5px var(--c-butter);
+  font-size: 13px; font-weight: 800; color: var(--c-ink); cursor: pointer;
+}
+.sim02 .sim02-pop-empty:hover { background: #ffe8a3; }
+/* still focusable when there is nothing to empty; a press does nothing */
+.sim02 .sim02-pop-empty[aria-disabled="true"] { opacity: 0.5; cursor: default; }
 
 
 /* ---------- HUD: four big readouts over the board ---------- */
@@ -223,13 +388,13 @@
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   box-shadow: var(--shadow-soft);
-  max-width: calc(100% - 140px);
+  max-width: calc(100% - 32px);
 }
 .sim02 .sim02-hud-title { margin: 0 6px; font-size: 14px; font-weight: 900; color: var(--c-grape-deep); }
 .sim02 .sim02-hud-title span { margin-left: 6px; font-weight: 700; color: var(--c-ink-2); }
 .sim02 .sim02-hud.is-warn .sim02-hud-title span { color: var(--c-straw-deep); }
 .sim02 .sim02-hud.is-part { box-shadow: var(--shadow-soft), 0 0 0 3px var(--c-butter); }
-.sim02 .sim02-hud-tiles { display: grid; grid-template-columns: repeat(4, minmax(112px, 1fr)); gap: 8px; }
+.sim02 .sim02-hud-tiles { display: grid; grid-template-columns: repeat(4, 156px); gap: 8px; } /* one width whatever the HUD shows */
 .sim02 .sim02-tile {
   --tile-bg: #eeeaff;
   --tile-flash: #ffe28f;
@@ -257,11 +422,17 @@
 .sim02 .sim02-tile-name { font-size: 13px; font-weight: 800; white-space: nowrap; }
 .sim02 .sim02-tile-name i { font-family: 'KaTeX_Math', 'Times New Roman', serif; font-weight: 400; font-size: 1.1em; margin-left: 1px; }
 .sim02 .sim02-tile-read { grid-column: 1 / -1; display: flex; align-items: baseline; margin-top: 2px; color: var(--c-ink); white-space: nowrap; }
-.sim02 .sim02-tile-value { display: inline-block; font-size: 26px; font-weight: 900; line-height: 1.1; font-variant-numeric: tabular-nums; transform-origin: 0 60%; }
+.sim02 .sim02-tile-value { display: inline-block; min-width: 5ch; text-align: right; font-size: 26px; font-weight: 900; line-height: 1.1; font-variant-numeric: tabular-nums; transform-origin: 100% 60%; } /* the unit stays in one spot */
 .sim02 .sim02-tile-unit { font-size: 16px; font-weight: 800; color: var(--tile-ink); }
 .sim02 .sim02-tile.is-na .sim02-tile-value { font-size: 17px; }
 .sim02 .sim02-tile.is-na .sim02-tile-unit { display: none; }
-.sim02 .sim02-tile-note { grid-column: 1 / -1; font-size: 12px; font-weight: 700; color: var(--tile-ink); opacity: 0.85; white-space: nowrap; }
+/* a long note wraps to a second line inside its tile instead of running into the next tile */
+.sim02 .sim02-tile-note { grid-column: 1 / -1; font-size: 12px; font-weight: 700; line-height: 1.25; color: var(--tile-ink); }
+/* four tiles in a row need a board column of 700 px (16 + 668 + 16); a narrower one (861 to about 1130 px windows)
+   gets a 2x2 grid. The phone and landscape blocks below set their own grids. */
+@container stage (max-width: 699px) {
+  .sim02 .sim02-hud-tiles { grid-template-columns: repeat(2, 176px); } /* the narrowest column (470 px) still has room */
+}
 
 
 /* ---------- capacitor bits ---------- */
@@ -271,7 +442,7 @@
 .sim02 .sim02-chip-art.is-cap::before { content: ''; position: absolute; left: 4px; right: 4px; top: 11px; height: 3px; border-radius: 2px; background: #b9b3d6; }
 .sim02 .sim02-chip-art.is-cap span { position: relative; width: 6px; height: 22px; border-radius: 4px; background: var(--c-butter); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.08); }
 .sim02 .sim02-chip-art.is-cap span + span { background: #b9b0ee; }
-.sim02 .sim02-chip:disabled { opacity: 0.42; cursor: not-allowed; translate: none; }
+.sim02 .sim02-chip:disabled, .sim02 .sim02-chip.is-full[aria-disabled="true"] { opacity: 0.42; cursor: not-allowed; translate: none; }
 
 /* ---------- time module: current over time ---------- */
 .sim02 .sim02-time {
@@ -284,9 +455,10 @@
 }
 .sim02 .sim02-time .sim02-row-head h2 { flex: 1; margin: 0; font-size: 17px; color: var(--card-ink); }
 .sim02 .sim02-time .sim02-icon { color: var(--card-ink); }
-.sim02 .sim02-time .sim02-tag { color: var(--card-ink); }
 .sim02 .sim02-time-empty p { margin: 4px 0 0; font-size: 14.5px; color: var(--c-ink-2); }
 .sim02 .sim02-time-live { display: grid; gap: 10px; margin-top: 4px; }
+/* a wide notebook (tablet portrait) keeps the plots at a size where a plot and the speed buttons fit on screen together */
+.sim02 .sim02-time-live { width: 100%; max-width: 520px; margin-inline: auto; }
 .sim02 .sim02-seg { display: flex; gap: 4px; padding: 4px; border-radius: var(--r-pill); background: rgba(255, 255, 255, 0.75); width: fit-content; max-width: 100%; flex-wrap: wrap; }
 .sim02 .sim02-seg button {
   border: 0; padding: 7px 12px; border-radius: var(--r-pill); background: transparent;
@@ -298,24 +470,58 @@
 .sim02 .sim02-plot { margin: 0; padding: 8px 10px 6px; border-radius: 16px; background: rgba(255, 255, 255, 0.85); }
 .sim02 .sim02-plot figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; font-weight: 800; color: var(--c-ink); }
 .sim02 .sim02-plot figcaption i { font-family: 'KaTeX_Math', 'Times New Roman', serif; font-weight: 400; font-size: 1.12em; }
-.sim02 .sim02-plot-now { font-size: 15px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.sim02 .sim02-plot-now { min-width: 7.5ch; text-align: right; font-size: 15px; font-weight: 900; font-variant-numeric: tabular-nums; }
 .sim02 .sim02-plot svg { display: block; width: 100%; height: auto; overflow: visible; }
-.sim02 .sim02-plot .ax { stroke: #b8b0d8; stroke-width: 1.5; }
+.sim02 .sim02-plot .ax { stroke: #8d84b8; stroke-width: 1.5; }
 .sim02 .sim02-plot .g { stroke: #e2ddf4; stroke-width: 1; stroke-dasharray: 3 3; }
 .sim02 .sim02-plot .m { stroke: #c9c2e6; stroke-width: 1; stroke-dasharray: 4 3; }
 .sim02 .sim02-plot .ml { font: 700 9.5px var(--font); fill: var(--c-ink-2); text-anchor: end; }
-.sim02 .sim02-plot .book { fill: none; stroke: #c9c2e6; stroke-width: 2; stroke-dasharray: 5 4; }
+.sim02 .sim02-plot .book { fill: none; stroke: #8f86c4; stroke-width: 2; stroke-dasharray: 5 4; }
 .sim02 .sim02-plot .trace { fill: none; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
-.sim02 .sim02-plot-I .trace { stroke: #e0a400; }
+.sim02 .sim02-plot-I .trace { stroke: #b07d00; }
 .sim02 .sim02-plot-V .trace { stroke: #4f7fd6; }
 .sim02 .sim02-plot .dot { stroke: #fff; stroke-width: 2.5; }
-.sim02 .sim02-plot-I .dot { fill: #e0a400; }
+.sim02 .sim02-plot-I .dot { fill: #b07d00; }
 .sim02 .sim02-plot-V .dot { fill: #4f7fd6; }
 .sim02 .sim02-plot .tx { font: 800 10px var(--font); fill: var(--c-ink-2); text-anchor: middle; }
 .sim02 .sim02-plot .ty { font: 800 10px var(--font); fill: var(--c-ink-2); text-anchor: end; }
 .sim02 .sim02-plot .tu { font: 800 10px var(--font); fill: var(--c-ink-2); text-anchor: end; }
-.sim02 .sim02-time-clock { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--c-ink-2); font-variant-numeric: tabular-nums; }
+.sim02 .sim02-time-clock { display: grid; gap: 2px; font-size: 13.5px; font-weight: 700; color: var(--c-ink-2); font-variant-numeric: tabular-nums; }
+.sim02 .sim02-time-clock p { margin: 0; }
+/* one fixed line for the time, then a note with two lines kept free, so the Equations below never move */
+.sim02 .sim02-time-clock .clock-t { min-height: 1.45em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sim02 .sim02-time-clock .clock-note { min-height: calc(2 * 1.45em); }
 .sim02 .sim02-time-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.sim02 .sim02-plot .ph { stroke: var(--card-ink); stroke-width: 1.5; opacity: 0.35; }
+/* a mouse scrubs from the press; a finger scrolls the page up and down and scrubs when it moves sideways */
+.sim02 .sim02-plot svg { cursor: ew-resize; touch-action: pan-y; }
+/* the plot is redrawn every frame; its parts take no pointer events so a press always lands on the svg itself */
+.sim02 .sim02-plot svg * { pointer-events: none; }
+/* The timeline lines up with the plots' time axis: the same padding as a plot, then the plot area's margins
+   (M.l = 46 and M.r = 12 of the SVG's 320 units). Ticks sit at τ, 2τ, 3τ, 4τ. */
+.sim02 .sim02-timeline { padding: 2px 10px; overflow-x: clip; } /* the knob's moving layer must never widen the page */
+.sim02 .sim02-tl-track {
+  position: relative; height: 10px; margin: 6px 3.75% 6px 14.375%;
+  border-radius: var(--r-pill); background: rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 0 0 1.5px #5a9875;
+  cursor: pointer; touch-action: none;
+}
+.sim02 .sim02-tl-track::before { content: ''; position: absolute; inset: -12px 0; } /* a taller target than the thin track */
+.sim02 .sim02-tl-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: inherit; background: var(--card-ink); opacity: 0.7; transform-origin: 0 50%; transform: scaleX(0); }
+/* the knob rides on a layer as wide as the track, moved with a transform (no layout every frame) */
+.sim02 .sim02-tl-run { position: absolute; inset: 0; pointer-events: none; }
+.sim02 .sim02-tl-tick { position: absolute; top: 2px; bottom: 2px; width: 2px; margin-left: -1px; border-radius: 1px; background: #5a9875; }
+.sim02 .sim02-tl-knob {
+  position: absolute; top: 50%; left: 0; width: 28px; height: 28px; translate: -50% -50%; pointer-events: auto;
+  border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px var(--card-ink), 0 4px 10px -4px rgba(47, 122, 84, 0.7);
+  transition: scale 0.2s var(--spring);
+}
+.sim02 .sim02-tl-knob::before { content: ''; position: absolute; inset: -8px; border-radius: 50%; } /* a 44 px hit ring */
+.sim02 .sim02-tl-knob:hover, .sim02 .sim02-tl-track:active .sim02-tl-knob { scale: 1.12; }
+.sim02 .sim02-tl-knob:focus-visible { outline: 3px solid var(--c-grape); outline-offset: 3px; }
+.sim02 .sim02-time-live.is-static .sim02-timeline { display: none; }
+.sim02 .sim02-tp-speed button { display: inline-flex; align-items: center; gap: 5px; }
+.sim02 .sim02-tp-speed svg { width: 15px; height: 15px; flex: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
 
 /* ---------- dock (the parts tray) ---------- */
 .sim02 .sim02-dock {
@@ -325,7 +531,11 @@
   gap: 6px;
   padding: 0 16px 16px;
 }
-.sim02 .sim02-dock-hint { margin: 0; font-size: 13px; font-weight: 700; color: var(--c-ink-2); text-align: center; }
+.sim02 .sim02-dock-hint { margin: 0; font-size: 13px; font-weight: 700; color: var(--c-ink-2); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; transition: opacity 0.2s; }
+/* the hint and the drag preview share one line: they crossfade, and nothing under them moves */
+.sim02 .sim02-dock-cell { display: grid; place-items: center; height: 22px; max-width: 100%; }
+.sim02 .sim02-dock-cell > * { grid-area: 1 / 1; }
+.sim02.is-previewing .sim02-dock-hint { opacity: 0; }
 .sim02 .sim02-tray {
   display: flex;
   gap: 8px;
@@ -355,7 +565,8 @@
 }
 .sim02 .sim02-chip:hover { background: var(--c-butter-soft); translate: 0 -3px; }
 .sim02 .sim02-chip:active { scale: 0.94; cursor: grabbing; }
-.sim02 .sim02-chip.is-holding { background: var(--c-butter); translate: 0 -6px; box-shadow: 0 10px 20px -10px rgba(116, 103, 194, 0.7); }
+/* the part in hand: lifted, with a dashed grape outline (the tour's "drag this" chip is butter, so the two never look alike) */
+.sim02 .sim02-chip.is-holding, .sim02[data-cues~="on"] .sim02-chip.is-holding[data-spot] { background: var(--c-paper); translate: 0 -6px; outline: 2.5px dashed var(--c-grape); outline-offset: -5px; box-shadow: 0 10px 20px -10px rgba(116, 103, 194, 0.7); }
 .sim02 .sim02-chip-label { font-size: 14px; font-weight: 900; }
 .sim02 .sim02-chip-art { display: block; width: 60px; height: 24px; position: relative; }
 .sim02 .sim02-chip-art.is-resistor::before {
@@ -373,7 +584,10 @@
 .sim02 .sim02-chip-art.is-wire svg { width: 60px; height: 24px; fill: none; stroke: #9b8fe6; stroke-width: 5; stroke-linecap: round; }
 
 /* ---------- the notebook ---------- */
+/* positioned, so the screen-reader-only spans inside (absolute) stay in the notebook's own scroll box and never
+   stretch the page */
 .sim02 .sim02-notebook {
+  position: relative;
   min-height: 0;
   overflow-y: auto;
   padding: 24px 24px 40px;
@@ -395,7 +609,6 @@
   background: var(--c-tint);
 }
 .sim02 .sim02-battery h2 { margin: 0; display: flex; align-items: center; gap: 8px; }
-.sim02 .sim02-battery .sim02-small { margin: 0; }
 .sim02 .sim02-mini-batt {
   position: relative; width: 26px; height: 15px; border-radius: 8px; background: #8fb2ff;
   box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.08);
@@ -404,20 +617,30 @@
 .sim02 .sim02-mini-batt::before { content: ''; position: absolute; left: 8px; top: 5px; width: 2px; height: 2px; border-radius: 50%; background: var(--c-ink); box-shadow: 7px 0 0 var(--c-ink); }
 .sim02 .sim02-notes-head { margin: 4px 0 12px; }
 .sim02 .sim02-notes-head h2 { margin: 0 0 2px; font-size: 20px; color: var(--c-grape-deep); }
-.sim02 .sim02-notes-head .sim02-small { margin: 0; }
 .sim02 .sim02-slider { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 4px 12px; font-size: 14px; font-weight: 700; }
 .sim02 .sim02-out { font-weight: 900; font-variant-numeric: tabular-nums; }
 .sim02 .sim02-slider input { grid-column: 1 / -1; width: 100%; margin: 4px 0 0; accent-color: var(--c-grape); height: 28px; }
+/* one 20 px thumb in every browser (the cue arrow beside the r thumb is placed for that size) */
+.sim02 .sim02-slider input[type="range"] { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
+.sim02 .sim02-slider input[type="range"]::-webkit-slider-runnable-track { height: 6px; border-radius: var(--r-pill); background: var(--c-tint-2); }
+.sim02 .sim02-slider input[type="range"]::-moz-range-track { height: 6px; border-radius: var(--r-pill); background: var(--c-tint-2); }
+.sim02 .sim02-slider input[type="range"]::-moz-range-progress { height: 6px; border-radius: var(--r-pill); background: var(--c-grape); }
+.sim02 .sim02-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; box-sizing: border-box; width: 20px; height: 20px; margin-top: -7px;
+  border: 0; border-radius: 50%; background: var(--c-grape); box-shadow: 0 0 0 3px var(--c-paper), 0 3px 8px -2px rgba(74, 58, 140, 0.6);
+}
+.sim02 .sim02-slider input[type="range"]::-moz-range-thumb {
+  box-sizing: border-box; width: 20px; height: 20px;
+  border: 0; border-radius: 50%; background: var(--c-grape); box-shadow: 0 0 0 3px var(--c-paper), 0 3px 8px -2px rgba(74, 58, 140, 0.6);
+}
 
 .sim02 .sim02-preview-pill {
-  position: sticky; top: 0; z-index: 2;
-  width: fit-content; margin: 0 auto 8px;
-  padding: 5px 14px; border-radius: var(--r-pill);
-  background: var(--c-butter); font-size: 13px; font-weight: 900;
-  opacity: 0; translate: 0 -6px; pointer-events: none;
-  transition: opacity 0.2s, translate 0.35s var(--spring);
+  margin: 0; padding: 2px 12px; border-radius: var(--r-pill);
+  background: var(--c-butter); font-size: 13px; font-weight: 900; line-height: 18px; white-space: nowrap;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
 }
-.sim02.is-previewing .sim02-preview-pill { opacity: 1; translate: 0 0; }
+.sim02.is-previewing .sim02-preview-pill { opacity: 1; }
 
 .sim02 .sim02-eqs { display: grid; gap: 12px; margin-bottom: 26px; }
 .sim02 .sim02-row {
@@ -446,14 +669,8 @@
 }
 .sim02 .sim02-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .sim02 .sim02-row-head h3 { flex: 1; margin: 0; font-size: 16px; font-weight: 900; line-height: 1.2; color: var(--card-ink); }
-.sim02 .sim02-tag {
-  flex: none; padding: 3px 9px; border-radius: var(--r-pill);
-  background: rgba(255, 255, 255, 0.9); color: var(--card-ink);
-  font-size: 12px; font-weight: 900;
-  rotate: -3deg;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.04);
-}
 .sim02 .sim02-row-body { display: grid; gap: 2px; }
+.sim02 .sim02-row-body > * { box-sizing: border-box; } /* a line's held min-height (panel.ts) covers its padding */
 .sim02 .sim02-eq {
   overflow-x: auto;
   overflow-y: hidden;
@@ -482,7 +699,15 @@
 }
 .sim02 .sim02-eq .sim02-num * { font-family: inherit !important; font-style: normal !important; }
 .sim02 .sim02-eqs.is-preview .sim02-num { color: var(--c-grape-deep); box-shadow: 0 0 0 2px var(--c-butter); }
-.sim02 .sim02-sym { border-radius: 0.4em; padding: 0 0.08em; transition: background 0.15s, box-shadow 0.15s; }
+.sim02 .sim02-sym { position: relative; border-radius: 0.4em; padding: 0 0.08em; transition: background 0.15s, box-shadow 0.15s; }
+/* KaTeX stacks fraction parts in .vlist boxes that sit over the symbols: let presses through to the symbols */
+.sim02 .sim02-eqs .vlist, .sim02 .sim02-eqs .vlist * { pointer-events: none; }
+.sim02 .sim02-eqs .sim02-sym, .sim02 .sim02-eqs .sim02-sym * { pointer-events: auto; }
+/* a bigger, invisible pad to press, about a fingertip tall */
+.sim02 .sim02-eqs .sim02-sym::after {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: max(calc(100% + 12px), 32px); height: 40px; translate: -50% -50%;
+}
 .sim02 .sim02-sym.is-linked { background: var(--c-butter); box-shadow: 0 0 0 3px var(--c-butter); }
 .sim02 .sim02-say { margin: 8px 0 0; font-size: 14.5px; line-height: 1.5; color: var(--c-ink-2); max-width: 60ch; }
 .sim02 .sim02-check { margin: 10px 0 0; font-size: 12.5px; font-weight: 800; color: var(--c-ink-2); }
@@ -492,7 +717,7 @@
   width: 18px; height: 18px; margin-right: 4px; border-radius: 50%;
   font-size: 11px; vertical-align: -3px;
 }
-.sim02 .sim02-check.is-ok span { background: #bfe8cf; color: #2f7a54; }
+.sim02 .sim02-check.is-ok span { background: #bfe8cf; color: #25603f; }
 .sim02 .sim02-check.is-bad span { background: #ffd2da; color: var(--c-straw-deep); }
 .sim02 .sim02-check.is-bad { color: var(--c-straw-deep); }
 
@@ -516,15 +741,16 @@
 .sim02 .sim02-compare thead th { font-size: 12px; color: var(--c-ink-2); font-weight: 800; }
 .sim02 .sim02-compare tbody th { font-weight: 800; }
 .sim02 .sim02-compare td { font-weight: 800; }
-.sim02 .sim02-clear {
-  padding: 8px 14px; border: 0; border-radius: var(--r-pill);
-  background: none; box-shadow: inset 0 0 0 2px var(--c-tint-2);
-  font-size: 14px; font-weight: 800; cursor: pointer;
-}
-.sim02 .sim02-clear:hover { background: var(--c-tint); }
+.sim02 .sim02-compare caption { text-align: left; padding: 0 6px 4px; font-size: 13px; font-weight: 900; color: var(--c-grape-deep); }
 .sim02 .sim02-approx { padding: 12px 14px; border-radius: var(--r-m); background: var(--c-tint); font-size: 14px; }
 .sim02 .sim02-approx summary { font-weight: 900; cursor: pointer; }
 .sim02 .sim02-approx ul { margin: 10px 0 0; padding-left: 18px; color: var(--c-ink-2); display: grid; gap: 6px; }
+.sim02 a { color: var(--c-grape-deep); font-weight: 800; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; text-decoration-color: rgba(116, 103, 194, 0.45); }
+.sim02 a:hover { text-decoration-color: var(--c-grape); }
+.sim02 .sim02-sources { margin-top: 16px; padding: 4px 2px 0; font-size: 13px; color: var(--c-ink-2); }
+.sim02 .sim02-sources h2 { font-size: 14px; margin: 0 0 6px; color: var(--c-ink); }
+.sim02 .sim02-sources p { margin: 0 0 8px; max-width: 62ch; }
+.sim02 .sim02-sources cite { font-style: italic; }
 
 /* ---------- guided tour ---------- */
 .sim02 .sim02-tour-start {
@@ -568,7 +794,8 @@
 }
 .sim02 .sim02-guide-map button span {
   width: 10px; height: 10px; border-radius: var(--r-pill);
-  background: #ddd6f5;
+  /* a step still ahead: 3:1 or more on every part of the card's gradient (3.06:1 on #f3f0ff) */
+  background: #8d84b8;
   transition: width 0.45s var(--spring), background 0.25s;
 }
 .sim02 .sim02-guide-map button:hover span { background: var(--c-butter); }
@@ -581,7 +808,7 @@
 /* Equations sit on a scrap of dot-grid notebook paper, with the book's page as a tab clipped to the top. */
 .sim02 .sim02-guide-eq {
   position: relative;
-  margin: 18px 0 12px; padding: 18px 12px 10px;
+  margin: 14px 0 12px; padding: 12px 12px 10px;
   border-radius: 18px;
   background-color: #fffdf7;
   background-image: radial-gradient(circle, #ddd5f2 1.1px, transparent 1.4px);
@@ -590,16 +817,9 @@
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 0 0 1.5px #ece6fa;
   display: grid; justify-items: center;
 }
-/* a long equation scrolls inside the paper; the page tab stays clipped to the top edge */
+/* a long equation scrolls inside the paper */
 .sim02 .sim02-guide-eq > div { max-width: 100%; overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
 .sim02 .sim02-guide-eq .katex { font-size: 1.24em; }
-.sim02 .sim02-guide-eq figcaption {
-  position: absolute; top: -11px; left: 14px;
-  padding: 3px 10px 4px; border-radius: 9px 9px 9px 3px;
-  background: var(--c-butter); color: var(--c-ink);
-  font-size: 12px; font-weight: 900; rotate: -2deg;
-  box-shadow: 0 3px 0 rgba(194, 140, 0, 0.18);
-}
 .sim02 .sim02-guide-badge {
   display: inline-block; margin-right: 8px; padding: 2px 9px;
   border-radius: var(--r-pill); background: var(--c-grape); color: #fff;
@@ -657,7 +877,7 @@
 .sim02 .sim02-guide-opt.is-answer > span::after {
   content: '✓'; position: absolute; right: 10px; top: 50%; translate: 0 -50%;
   width: 24px; height: 24px; display: grid; place-items: center;
-  border-radius: 50%; background: #bfe8cf; color: #2f7a54; font-size: 13px; font-weight: 900;
+  border-radius: 50%; background: #bfe8cf; color: #25603f; font-size: 13px; font-weight: 900;
 }
 
 /* "Try it" is an empty socket: a dashed pad like the empty slots on the board, filled in once done. */
@@ -678,7 +898,7 @@
 }
 .sim02 .sim02-guide-task[data-state="waiting"] .sim02-guide-taskicon { animation: sim02-breathe 1.6s ease-in-out infinite; }
 .sim02 .sim02-guide-task[data-state="done"] { border-style: solid; border-color: #9fd8b7; background: #f1faf4; }
-.sim02 .sim02-guide-task[data-state="done"] .sim02-guide-taskicon { background: #bfe8cf; color: #2f7a54; box-shadow: none; }
+.sim02 .sim02-guide-task[data-state="done"] .sim02-guide-taskicon { background: #bfe8cf; color: #25603f; box-shadow: none; }
 /* filling progress: a grape wire that fills with the board's butter current dots */
 .sim02 .sim02-guide-bar { grid-column: 1 / -1; height: 9px; border-radius: var(--r-pill); background: #e6e0f8; overflow: hidden; }
 .sim02 .sim02-guide-bar i {
@@ -719,8 +939,11 @@
   rotate: 3deg;
   box-shadow: 0 4px 10px -6px rgba(58, 51, 88, 0.5);
 }
+.sim02 .sim02-guide-stamp { white-space: nowrap; }
 .sim02 .sim02-guide-stamp svg { width: 16px; height: 16px; }
-.sim02 .sim02-guide-stamp.is-right { background: #bfe8cf; color: #2f7a54; }
+/* whatever comes first in the card starts below the stamp, so the stamp never sits on a line of text */
+.sim02 .sim02-guide-reveal > .sim02-guide-stamp + * { margin-top: 16px; }
+.sim02 .sim02-guide-stamp.is-right { background: #bfe8cf; color: #25603f; }
 .sim02 .sim02-guide-stamp.is-off { background: var(--c-butter); color: var(--c-ink); }
 .sim02 .sim02-guide-answer { margin: 0 0 10px; font-size: 14.5px; font-weight: 700; }
 .sim02 .sim02-guide-answer b { color: #2f7a54; }
@@ -745,7 +968,14 @@
 .sim02 .sim02-guide-ro-tile.is-after { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 0 0 2px var(--ro-ink); }
 .sim02 .sim02-guide-ro-arrow { color: var(--ro-ink); display: grid; }
 .sim02 .sim02-guide-ro-arrow svg { width: 22px; height: 22px; }
-.sim02 .sim02-guide-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.sim02 .sim02-guide-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  /* Back and Next stay in reach while a long step scrolls */
+  position: sticky; bottom: 0; z-index: 1;
+  margin: 4px -18px -14px; padding: 10px 18px 14px;
+  border-radius: 0 0 28px 28px;
+  background: linear-gradient(rgba(245, 241, 253, 0), rgba(245, 241, 253, 0.96) 12px);
+}
 .sim02 .sim02-guide-count { font-size: 12.5px; font-weight: 800; color: var(--c-ink-2); }
 .sim02 .sim02-guide-back, .sim02 .sim02-guide-next {
   padding: 9px 16px; border: 0; border-radius: var(--r-pill);
@@ -755,6 +985,10 @@
 .sim02 .sim02-guide-back { background: none; color: var(--c-ink-2); box-shadow: inset 0 0 0 2px var(--c-tint-2); }
 .sim02 .sim02-guide-back:disabled { opacity: 0.4; cursor: default; }
 .sim02 .sim02-guide-next { background: rgba(255, 255, 255, 0.85); color: var(--c-ink-2); }
+/* both labels sit in one grid cell, so the button is always as wide as the longer one and never moves */
+.sim02 .sim02-guide-next { display: inline-grid; justify-items: center; }
+.sim02 .sim02-guide-next > span { grid-area: 1 / 1; }
+.sim02 .sim02-guide-next:not(.is-ready) > .gn-go, .sim02 .sim02-guide-next.is-ready > .gn-skip { visibility: hidden; }
 .sim02 .sim02-guide-next.is-ready { background: var(--c-grape); color: #fff; box-shadow: 0 10px 20px -12px rgba(90, 77, 170, 0.9); }
 .sim02 .sim02-guide-back:active, .sim02 .sim02-guide-next:active { scale: 0.95; }
 
@@ -764,21 +998,93 @@
 .sim02.is-touring .sim02-approx,
 .sim02.is-touring .sim02-battery:not(.is-spot),
 .sim02.is-touring .sim02-time:not(.is-spot),
-.sim02.is-touring .sim02-notes-head .sim02-small,
 .sim02.is-touring .sim02-eqs .sim02-row:not(.is-spot),
 .sim02.is-touring:not(.has-spot-rows) .sim02-notes-head,
 .sim02.is-touring:not(.has-spot-rows) .sim02-eqs { display: none; }
 .sim02.is-touring .sim02-head h1 { margin-bottom: 12px; }
-@keyframes sim02-glow {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(255, 209, 92, 0.95), 0 8px 24px -10px rgba(74, 58, 140, 0.35); }
-  50% { box-shadow: 0 0 0 7px rgba(255, 209, 92, 0.35), 0 8px 24px -10px rgba(74, 58, 140, 0.35); }
+/* the hand is motion; with reduced motion there is nothing for Show me to play, so the button goes ("Do it for me" stays) */
+@media (prefers-reduced-motion: reduce) { .sim02 .sim02-guide-showme { display: none; } }
+
+/* ---------- guide cues (cues.ts; the Coach set: arrival, highlighted names, beacon, show-me hand) ----------
+   cues.ts marks .sim02 with data-cues="on onset textlink beacon ghost" and each target with data-spot.
+   Watch: a thin grape line with a paper gap, the focus-ring shape. Do: a grape-deep line on butter.
+   Grape against the pale paper and mint board is the contrast the butter glow lacked; butter stays as the warmth. */
+.sim02[data-cues~="on"].is-touring :is(.sim02-hud, .sim02-battery, .sim02-time, .sim02-row)[data-spot="watch"] {
+  outline: 2px solid rgba(116, 103, 194, 0.6); outline-offset: 3px;
 }
-.sim02.is-touring .sim02-hud.is-spot,
-.sim02.is-touring .sim02-battery.is-spot,
-.sim02.is-touring .sim02-time.is-spot,
-.sim02.is-touring .sim02-row.is-spot { animation: sim02-glow 2.6s ease-in-out infinite; }
-.sim02.is-touring .sim02-chip.is-spot { background: var(--c-butter-soft); box-shadow: 0 0 0 3px var(--c-butter); translate: 0 -3px; }
-.sim02.is-touring .sim02-label.is-spot { background: var(--c-butter-soft); }
+.sim02[data-cues~="on"] .sim02-label[data-spot="watch"] { background: var(--c-butter-soft); outline: 1.5px solid rgba(116, 103, 194, 0.55); outline-offset: 1px; }
+.sim02[data-cues~="on"] .sim02-label[data-spot="do"] { background: var(--c-butter); outline: 2.5px solid var(--c-grape-deep); outline-offset: 1px; }
+/* chips sit in a scrolling tray, which clips anything outside the chip: the ring goes inside */
+.sim02[data-cues~="on"].is-touring .sim02-chip[data-spot="watch"] { background: var(--c-butter-soft); box-shadow: inset 0 0 0 2px rgba(116, 103, 194, 0.55); }
+.sim02[data-cues~="on"].is-touring .sim02-chip[data-spot="do"]:not(.is-holding) { background: var(--c-butter); box-shadow: inset 0 0 0 3px var(--c-grape-deep); }
+.sim02[data-cues~="on"] .sim02-slider[data-spot] { position: relative; margin: -8px -10px; padding: 8px 10px; border-radius: 16px; }
+.sim02[data-cues~="on"] .sim02-slider[data-spot="watch"] { background: var(--c-butter-soft); }
+.sim02[data-cues~="on"] .sim02-slider[data-spot="do"] { background: var(--c-butter-soft); outline: 2.5px solid var(--c-grape-deep); outline-offset: 2px; }
+.sim02[data-cues~="on"] button[data-spot="watch"] { outline: 1.5px solid rgba(116, 103, 194, 0.55); outline-offset: 2px; }
+.sim02[data-cues~="on"] button[data-spot="do"] { outline: 2.5px solid var(--c-grape-deep); outline-offset: 2px; }
+/* a pressed toggle (5× once chosen) keeps its own pressed look. In a two-way switch (battery in/out, speed) a fill
+   would read as the picked side, so a cued button there gets the outline and the beacon rings only */
+.sim02[data-cues~="on"] button[data-spot="do"]:not([aria-pressed="true"], .sim02-seg button) { background: var(--c-butter); color: var(--c-ink); }
+/* keyboard focus wins over a cue mark: an ink ring outside the cue line, with a paper gap so it reads on butter */
+.sim02[data-cues~="on"] button[data-spot]:focus-visible { outline: 3px solid var(--c-ink); outline-offset: 4px; box-shadow: 0 0 0 2px var(--c-paper); }
+/* chips sit in a tray that clips past its padding: their ring sits closer */
+.sim02[data-cues~="on"] .sim02-chip[data-spot]:focus-visible { outline-offset: 1px; }
+
+/* Names in the "Try it" text: a highlighter stroke that sweeps in as the part it names arrives. */
+.sim02 .sim02-guide-ref {
+  border-radius: 3px;
+  background: linear-gradient(transparent 55%, var(--c-butter) 55% 92%, transparent 92%) no-repeat 0 0 / 0% 100%;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  transition: background-size 0.45s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+.sim02[data-cues~="textlink"] .sim02-guide-ref { cursor: default; }
+.sim02[data-cues~="textlink"] .sim02-guide-ref.is-drawn { background-size: 100% 100%; }
+.sim02[data-cues~="textlink"] .sim02-guide-task[data-state="done"] .sim02-guide-ref { background-size: 0% 100%; }
+.sim02 .sim02-guide-taskbtns { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.sim02 .sim02-guide-taskbtns .sim02-guide-auto { grid-column: auto; }
+.sim02 .sim02-guide-showme {
+  border: 0; padding: 4px 11px; border-radius: var(--r-pill);
+  background: var(--c-grape); color: #fff; font-size: 13px; font-weight: 800; cursor: pointer;
+}
+.sim02 .sim02-guide-showme:hover { background: var(--c-grape-deep); }
+
+/* Beacon: the do slot's label turns into a grape pin that points at its part. The motion (the pin bobs, the chip
+   hops, buttons send out rings, the socket ripples) is played by cues.ts a few times, then rests until a nudge. */
+.sim02[data-cues~="beacon"] .sim02-label[data-spot="do"] {
+  background: var(--c-grape-deep); color: #fff; outline: 2.5px solid var(--c-paper); outline-offset: 0;
+  box-shadow: 0 10px 22px -10px rgba(58, 51, 88, 0.75);
+}
+.sim02[data-cues~="beacon"] .sim02-label[data-spot="do"] b { color: var(--c-butter); }
+.sim02[data-cues~="beacon"] .sim02-label[data-spot="do"] :is(.sim02-label-read, .sim02-label-empty) { color: #e3ddff; }
+.sim02[data-cues~="beacon"] .sim02-label[data-spot="do"]::after {
+  content: ''; position: absolute; left: 50%; bottom: -5px; width: 11px; height: 11px;
+  translate: -50% 0; rotate: 45deg; border-radius: 0 0 3px 0; background: var(--c-grape-deep);
+}
+.sim02[data-cues~="beacon"] .sim02-label.is-below[data-spot="do"]::after { top: -5px; bottom: auto; border-radius: 3px 0 0 0; }
+.sim02[data-cues~="beacon"] .sim02-label.is-side[data-spot="do"]::after { left: auto; right: -5px; top: 50%; bottom: auto; translate: 0 -50%; border-radius: 0 3px 0 0; }
+/* the r slider: a small arrow beside the thumb says which way to slide */
+.sim02[data-cues~="beacon"][data-cue-stage="act"] .sim02-slider[data-spot="do"]::after {
+  content: '→'; position: absolute; bottom: 8px; height: 28px; width: 26px;
+  left: calc(10px + var(--thumb, 0) * (100% - 20px) + 14px);
+  display: grid; place-items: center;
+  font-size: 15px; font-weight: 900; color: var(--c-grape-deep);
+  animation: sim02-nudge-right 1.2s ease-in-out 3;
+}
+@keyframes sim02-nudge-right { 50% { translate: 6px 0; } }
+
+/* Show-me hand: a butter bubble with the hand icon, its fingertip on the point it moves through. */
+.sim02 .sim02-ghost { position: fixed; left: 0; top: 0; z-index: 60; pointer-events: none; }
+.sim02 .sim02-ghost-hand {
+  position: absolute; left: -13px; top: -6px;
+  width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--c-butter); color: var(--c-grape-deep);
+  box-shadow: 0 0 0 3px #fff, 0 12px 22px -10px rgba(58, 51, 88, 0.7);
+}
+.sim02 .sim02-ghost-hand svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sim02 .sim02-ghost-chip { position: absolute; left: -30px; top: -46px; opacity: 0.92; filter: drop-shadow(0 8px 10px rgba(58, 51, 88, 0.35)); }
+.sim02 .sim02-ghost-ring { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; border-radius: 50%; border: 3px solid var(--c-grape-deep); opacity: 0; }
+
 
 /* ---------- phones and narrow windows: the board stays pinned on top, the notebook scrolls under it ---------- */
 @media (max-width: 860px) {
@@ -810,14 +1116,32 @@
   .sim02 .sim02-hud-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
   .sim02 .sim02-tile { padding: 6px 6px 7px; border-radius: 14px; gap: 0 4px; }
   .sim02 .sim02-tile-icon { display: none; }
-  .sim02 .sim02-tile-name { grid-column: 1 / -1; font-size: 11px; white-space: normal; line-height: 1.15; }
+  /* two lines kept for every tile name, so the pinned stage keeps one height whatever the HUD shows */
+  .sim02 .sim02-tile-name { grid-column: 1 / -1; font-size: 11px; white-space: normal; line-height: 1.15; min-height: 2.3em; }
+  /* a subscript (R_eq) or the math italic never makes a name's line taller, so every tile keeps one height */
+  .sim02 .sim02-tile-name :is(sub, i) { line-height: 0; }
   .sim02 .sim02-tile-value { font-size: 16px; }
-  .sim02 .sim02-tile-read { flex-wrap: wrap; }
+  .sim02 .sim02-tile-read { flex-wrap: nowrap; }
   .sim02 .sim02-tile-unit { font-size: 12px; }
   .sim02 .sim02-tile.is-na .sim02-tile-value { font-size: 12px; }
   .sim02 .sim02-tile-note { display: none; }
+  /* a tagged or covered tile keeps its note ("before the change"): the name takes one line and the note the
+     second, so the tile keeps its height. Both shrink a little on the narrowest phones to fit on one line */
+  .sim02 .sim02-tile-read { order: 2; }
+  .sim02 .sim02-tile:is(.is-asked, .is-covered) .sim02-tile-name {
+    min-height: 0; height: 12.65px; line-height: 12.65px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sim02 .sim02-tile:is(.is-asked, .is-covered).is-longname .sim02-tile-name { font-size: clamp(8.5px, calc(3.27vw - 3.1px), 11px); }
+  .sim02 .sim02-tile:is(.is-asked, .is-covered) .sim02-tile-note {
+    display: block; order: 1; height: 12.65px; line-height: 12.65px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: clamp(8.5px, calc(3.5vw - 3.4px), 10.5px); opacity: 1;
+  }
+  .sim02 .sim02-tile .sim02-tile-note .sim02-short { display: inline; }
   .sim02 .sim02-dock { padding: 0 12px 10px; gap: 4px; }
   .sim02 .sim02-dock-hint { font-size: 12px; }
+  /* the hint cell is only as tall as the hint's line, so the pinned stage stays as tall as before the bar */
+  .sim02 .sim02-dock-cell { height: 18px; }
+  .sim02 .sim02-preview-pill { padding: 1px 10px; font-size: 12px; line-height: 16px; }
   .sim02 .sim02-tray { gap: 6px; padding: 6px; }
   .sim02 .sim02-chip { width: 52px; padding: 6px 2px 4px; }
   .sim02 .sim02-chip-label { font-size: 12.5px; }
@@ -834,26 +1158,157 @@
   }
   .sim02 .sim02-head h1 { font-size: 24px; }
   /* anything scrolled to or focused lands below the pinned board, not under it */
-  .sim02 .sim02-notebook :is(section, article, figure, details, button, input, output) { scroll-margin-top: calc(var(--sim02-stage-h, 0px) + 12px); }
+  .sim02 .sim02-notebook :is(section, article, figure, details, button, input, output, [tabindex="0"]) { scroll-margin-top: calc(var(--sim02-stage-h, 0px) + 12px); }
   .sim02 .sim02-label { font-size: 12px; padding: 2px 8px 3px; gap: 4px; }
   .sim02 .sim02-label-read { display: none; }
-  .sim02 .sim02-label.is-linked .sim02-label-read, .sim02 .sim02-label.is-sel .sim02-label-read { display: inline; }
-  .sim02 .sim02-status { font-size: 13px; bottom: 6px; }
+  .sim02 .sim02-label.is-linked .sim02-label-read, .sim02 .sim02-label.is-sel .sim02-label-read { display: block; animation: sim02-fade-in 0.15s ease-out; }
+  .sim02 .sim02-status { font-size: 13px; bottom: 56px; }
+  .sim02 .sim02-replay { font-size: 12.5px; bottom: 56px; }
   .sim02 .sim02-label-empty { display: none; }
-  .sim02 .sim02-recenter { top: 8px; right: 8px; font-size: 12px; padding: 5px 10px; }
-  .sim02 .sim02-preview-pill { position: fixed; top: auto; bottom: calc(16px + env(safe-area-inset-bottom)); left: 50%; translate: -50% 6px; }
-  .sim02.is-previewing .sim02-preview-pill { translate: -50% 0; }
-  .sim02 .sim02-dock-hint .sim02-long { display: none; }
+  .sim02 .sim02-long { display: none; }
+  .sim02 .sim02-guide-foot { margin: 4px -14px -12px; padding: 10px 14px 12px; border-radius: 0 0 24px 24px; }
   .sim02 .sim02-guide { padding: 12px 14px 12px; border-radius: 24px; }
   .sim02 .sim02-guide-title { font-size: 19px; }
   .sim02 .sim02-guide-text p, .sim02 .sim02-guide-reveal p { font-size: 14.5px; }
-  .sim02 .sim02-guide-map { gap: 3px; }
+  /* each dot gets a 32 px target that touches the next one (the dot itself keeps its size) */
+  .sim02 .sim02-guide-map { gap: 0; }
+  .sim02 .sim02-guide-map button { width: 32px; height: 32px; }
+  .sim02 .sim02-guide-map button.is-here { width: 44px; }
   .sim02 .sim02-guide-ro-tile b { font-size: 17px; }
   .sim02 .sim02-guide-ro-tile { padding: 6px 10px 7px; }
   .sim02 .sim02-guide-opts { padding: 8px 18px; }
   .sim02 .sim02-guide-opt > span { padding: 9px 13px; font-size: 14px; }
 }
 
+/* the narrowest phones: the six chips share the tray instead of running past its edge */
+@media (max-width: 369px) {
+  .sim02 .sim02-chip { flex: 1 1 0; min-width: 0; }
+}
+/* 320 px phones: the docked capacitor dial (−, C, the value, +, Empty C, Remove C) packs tighter to fit one row */
+@media (max-width: 359px) {
+  .sim02 .sim02-pop.is-docked { gap: 2px; }
+  .sim02 .sim02-pop.is-docked .sim02-dial { gap: 2px; }
+  .sim02 .sim02-pop.is-docked .sim02-dial button { width: 38px; height: 38px; }
+  .sim02 .sim02-pop.is-docked .sim02-dial .sim02-pop-name { margin: 0 1px 0 4px; }
+  .sim02 .sim02-pop.is-docked .sim02-dial output { min-width: 4.6ch; margin-right: 2px; }
+  .sim02 .sim02-pop.is-docked :is(.sim02-pop-remove, .sim02-pop-empty) { padding: 0 7px; }
+}
+
+/* after the phone block: the compact board's status sits above its taller bar */
+@container board (max-width: 639px) {
+  .sim02 .sim02-status { bottom: 58px; }
+}
+@keyframes sim02-fade-in { from { opacity: 0; } }
+
+/* ---------- phone landscape and short windows: board left, notebook right, each in its own column ----------
+   Complete on its own: from 861 to 960 px wide the phone block above does not apply. */
+@media (max-width: 960px) and (orientation: landscape) and (max-height: 520px) {
+  .sim02 { display: grid; grid-template-columns: minmax(0, 1fr) 320px; height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; overflow: clip; }
+  .sim02 .sim02-stage { position: relative; top: auto; z-index: auto; height: 100vh; height: 100dvh; min-height: 0; border-radius: 0; box-shadow: none; background: none; }
+  .sim02 .sim02-canvas-wrap { flex: 1; height: auto; min-height: 0; }
+  .sim02 .sim02-hud { order: -1; position: static; max-width: none; margin: 6px 8px 0; padding: 4px; gap: 0; border-radius: 18px; }
+  /* the title is the HUD's live region, so it stays in the page: read-only for screen readers while it shows the
+     circuit's status, and one short visible line while a prediction pauses the board (the paused chip) */
+  .sim02 .sim02-hud-title { font-size: 11px; line-height: 16px; margin: 0 6px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sim02 .sim02-hud-title:not(:has(.sim02-hud-chip)) { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); }
+  .sim02 .sim02-hud .sim02-hud-title .sim02-hud-chip { margin-block: 0; line-height: 16px; }
+  .sim02 .sim02-hud-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .sim02 .sim02-tile { padding: 4px 7px 5px; border-radius: 12px; gap: 0 4px; }
+  .sim02 .sim02-tile-icon, .sim02 .sim02-tile-note { display: none; }
+  /* a tagged or covered tile keeps its note under the number (the HUD grows one short line while it shows) */
+  .sim02 .sim02-tile:is(.is-asked, .is-covered) .sim02-tile-note { display: block; order: 3; height: auto; font-size: clamp(8.5px, calc(3.6vw - 14.8px), 10px); line-height: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 1; }
+  .sim02 .sim02-tile:is(.is-asked, .is-covered).is-longname .sim02-tile-name { font-size: 11px; }
+  .sim02 .sim02-tile .sim02-tile-note .sim02-short { display: inline; }
+  .sim02 .sim02-tile-name { grid-column: 1 / -1; font-size: 11px; line-height: 1.15; min-height: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sim02 .sim02-tile-read { flex-wrap: nowrap; margin-top: 0; }
+  .sim02 .sim02-tile-value { font-size: 15px; min-width: 4ch; }
+  .sim02 .sim02-tile-unit { font-size: 11.5px; }
+  .sim02 .sim02-tile.is-na .sim02-tile-value { font-size: 12px; }
+  .sim02 .sim02-dock { padding: 0 8px 6px; gap: 0; }
+  .sim02 .sim02-dock-cell { display: none; }
+  .sim02 .sim02-tray { gap: 5px; padding: 5px; }
+  .sim02 .sim02-chip { width: 46px; padding: 4px 2px 3px; }
+  .sim02 .sim02-chip-label { font-size: 12px; }
+  .sim02 .sim02-chip-art { width: 40px; height: 20px; }
+  .sim02 .sim02-chip-art.is-wire svg { width: 40px; height: 20px; }
+  .sim02 .sim02-chip-body { left: 7px; right: 7px; }
+  .sim02 .sim02-chip-art.is-cap span { height: 18px; }
+  .sim02 .sim02-chip-art.is-cap::before, .sim02 .sim02-chip-art.is-resistor::before { top: 9px; }
+  .sim02 .sim02-notebook {
+    box-sizing: border-box; height: 100vh; height: 100dvh; min-height: 0; overflow-y: auto;
+    padding: 14px 14px 30px; padding-bottom: calc(30px + env(safe-area-inset-bottom));
+    background: var(--c-paper); border-radius: var(--r-l) 0 0 var(--r-l); box-shadow: -18px 0 50px -30px rgba(74, 58, 140, 0.45);
+  }
+  /* nothing is pinned over the notebook here, so scrolled-to things only need a small margin */
+  .sim02 .sim02-notebook :is(section, article, figure, details, button, input, output, [tabindex="0"]) { scroll-margin-top: 12px; }
+  .sim02 .sim02-head h1 { font-size: 22px; }
+  .sim02 .sim02-label { font-size: 12px; padding: 2px 8px 3px; gap: 4px; }
+  .sim02 .sim02-label-read, .sim02 .sim02-label-empty { display: none; }
+  .sim02 .sim02-label.is-linked .sim02-label-read, .sim02 .sim02-label.is-sel .sim02-label-read { display: block; animation: sim02-fade-in 0.15s ease-out; }
+  .sim02 .sim02-long { display: none; }
+  .sim02 .sim02-status { font-size: 13px; bottom: 58px; max-width: calc(100% - 24px); }
+  /* a narrow board column (a 200% zoom of a laptop window) can't fit "Voltage V_terminal" on one line: every
+     tile name takes two lines, so the symbols stay whole and the tiles keep one height */
+  @container stage (max-width: 439px) {
+    .sim02 .sim02-tile-name, .sim02 .sim02-tile:is(.is-asked, .is-covered) .sim02-tile-name { white-space: normal; overflow: visible; height: auto; min-height: 2.3em; }
+    .sim02 .sim02-tile-name :is(sub, i) { line-height: 0; }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sim02 *, .sim02 *::before, .sim02 *::after { transition-duration: 0.01ms !important; animation: none !important; }
 }
+
+/* ---------- the prediction freeze (freeze.ts): the board as it is before the change ---------- */
+/* the HUD title's chip, in place of the circuit status; it keeps the title row's height */
+.sim02 .sim02-hud-title .sim02-hud-chip {
+  display: inline-block; margin-block: -4px; padding: 0 9px; line-height: 18px; border-radius: var(--r-pill);
+  background: var(--c-tint-2); color: var(--c-grape-deep); font-weight: 800;
+}
+.sim02 .sim02-hud-title .sim02-hud-chip.is-refused { background: var(--c-butter-soft); color: var(--c-ink); }
+/* a refused press swaps the chip's words in place: both lines sit in one cell, so the chip keeps its size and the
+   title's text (a live region) never changes */
+.sim02 .sim02-hud-title .sim02-hud-chip { display: inline-grid; }
+.sim02 .sim02-hud-title .sim02-hud-chip > span { grid-area: 1 / 1; margin-left: 0; font-weight: inherit; color: inherit; white-space: nowrap; }
+/* opacity, not visibility: hiding the chip's words would take them out of the live region and back in */
+.sim02 .sim02-hud-title .sim02-hud-chip-no, .sim02 .sim02-hud-title .sim02-hud-chip.is-refused .sim02-hud-chip-now { opacity: 0; }
+.sim02 .sim02-hud-title .sim02-hud-chip.is-refused .sim02-hud-chip-no { opacity: 1; }
+/* a covered value: "?" in a dashed pill over the number, which keeps its space */
+.sim02 .sim02-tile-read { position: relative; }
+.sim02 .sim02-tile-q { display: none; }
+.sim02 .sim02-tile.is-covered :is(.sim02-tile-value, .sim02-tile-unit) { visibility: hidden; }
+.sim02 .sim02-tile.is-covered .sim02-tile-q {
+  display: grid; place-items: center; position: absolute; inset: 1px auto 1px 0; min-width: 3.2em; padding: 0 10px;
+  /* a step darker than the tile's ink, so the "?" clears 4.5:1 on its tint in every tile */
+  border-radius: var(--r-pill); font-weight: 900; color: color-mix(in srgb, var(--tile-ink) 85%, #000);
+  background: color-mix(in srgb, var(--tile-ink) 9%, transparent);
+  outline: 1.5px dashed color-mix(in srgb, var(--tile-ink) 45%, transparent); outline-offset: -1.5px;
+}
+/* the asked value: a ring inside the tile and "before the change" ("before change" on a phone) */
+.sim02 .sim02-tile-note .sim02-short { display: none; }
+.sim02 .sim02-tile.is-asked { box-shadow: inset 0 0 0 2px var(--tile-ink), 0 1px 0 rgba(255, 255, 255, 0.85) inset; }
+/* "? V" in a slot label, an equation and a plot */
+.sim02 .sim02-q { display: inline-block; padding: 0 6px; border-radius: var(--r-pill); background: var(--c-tint-2); color: var(--c-grape-deep); font-weight: 900; }
+.sim02 .sim02-eq .sim02-num.is-q { color: var(--c-grape-deep); background: var(--c-tint-2); box-shadow: none; }
+/* a held sentence keeps its place under a pill */
+.sim02 .sim02-say.is-held { position: relative; }
+.sim02 .sim02-say.is-held .sim02-say-real { visibility: hidden; }
+.sim02 .sim02-held-pill {
+  position: absolute; left: 0; top: 0; padding: 1px 10px; border-radius: var(--r-pill);
+  background: var(--c-tint-2); color: var(--c-grape-deep); font-size: 13px; font-weight: 800; white-space: nowrap;
+}
+/* plots: the curve ahead of the playhead is covered; the book curve fades in when the cover lifts */
+.sim02 .sim02-plot .pl-book { transition: opacity 0.9s ease-out; }
+.sim02 .sim02-plot.is-fog .pl-book { opacity: 0; transition: none; }
+.sim02 .sim02-plot .fog { fill: var(--c-tint-2); opacity: 0.85; }
+.sim02 .sim02-plot .fogt { font: 800 11px var(--font); fill: var(--c-grape-deep); text-anchor: middle; }
+/* locked while predicting: still focusable, dimmed, and a press says why */
+.sim02.is-predicting .sim02-tray { opacity: 0.5; filter: saturate(0.55); }
+.sim02.is-predicting .sim02-chip:hover { background: inherit; translate: none; }
+.sim02.is-predicting .sim02-slider input, .sim02.is-predicting .sim02-preset { opacity: 0.5; }
+.sim02 .sim02-time.is-locked :is(.sim02-seg, .sim02-tl-track, .sim02-time-controls) { opacity: 0.5; }
+.sim02 .sim02-tp-pill.is-locked button { opacity: 0.5; }
+.sim02 .sim02-pop.is-locked :is(button, output) { opacity: 0.45; }
+.sim02 .sim02-guide-opt[aria-disabled="true"] { cursor: progress; }
+/* in the tour the empty time box says nothing ahead of the step that drops the capacitor in */
+.sim02.is-touring .sim02-time-empty p { display: none; }
