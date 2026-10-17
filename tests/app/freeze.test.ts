@@ -163,7 +163,7 @@ describe('prediction freeze', () => {
     expect(maskFor(r1, 'predict').get(['R'], 'hud')).toBe('hide')
     expect(maskFor(r1, 'predict').get(['P'], 'hud')).toBe('hide')
     expect(maskFor(r1, 'predict').get(['V'], 'hud')).toBeNull()
-    expect(liftLine(r1, state({}), reading)).toBe('Battery current: 0 A. Power made by the battery, Iε: 0 W. Total resistance of the parts, not counting r: ∞ Ω.')
+    expect(liftLine(r1, state({}), reading)).toBe('Battery current: 0 A. Power produced by the battery, Iε: 0 W. Total resistance of the parts, not counting r: ∞ Ω.')
     const r15 = res('parallel-remove')
     expect(maskFor(r15, 'predict').say('parallel')).toBe(true)
     expect(maskFor(r15, 'act').say('parallel')).toBe(true)

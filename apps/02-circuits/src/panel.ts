@@ -181,23 +181,23 @@ function tauWords(c: Ctx): string {
   const k = c.b.cap!
   const R = capResistance(c.slots, k.id, c.b.r, c.b.batteryOut)
   const named = (ids: SlotId[]) => ids.filter(id => id !== k.id && c.slots[id]?.kind === 'resistor').map(slotWord)
-  const sideBySide = R.paths.length > 1 ? ' Paths side by side combine like parallel resistors.' : ''
+  const sideBySide = R.paths.length > 1 ? ' These paths are in parallel.' : ''
   let lead: string
   if (R.kind === 'series') {
-    lead = `${m('R')} is all the resistance in the capacitor's loop${c.b.r > 0 ? `, the battery's ${m('r')} included` : ''}.`
+    lead = `${m('R')} is the total resistance in the capacitor's loop${c.b.r > 0 ? `, including the battery's ${m('r')}` : ''}.`
   } else if (R.kind === 'branch') {
     const lanes = named(['R2', 'R3', 'R4'])
     const round = [...named(['R1', 'R5']), 'the battery']
     lead = lanes.length
-      ? `The capacitor's charge can flow through ${listWords(lanes)}, or back around through ${listWords(round)}.${sideBySide}`
+      ? `The capacitor's charge can flow through ${listWords(lanes)}, or around through ${listWords(round)}.${sideBySide}`
       : `The capacitor's charge flows around through ${listWords(round)}.`
   } else if (R.kind === 'out') {
-    lead = `${m('R')} is what the capacitor empties through. The battery is out, so ${m('r')} isn't in the path.${sideBySide}`
+    lead = `${m('R')} is the resistance the capacitor discharges through. With the battery out, ${m('r')} is not in the path.${sideBySide}`
   } else {
     const g = gapList(c.b)
-    lead = `${m('R')} is what the capacitor empties through. With ${g.text} empty, the battery is cut off.${sideBySide}`
+    lead = `${m('R')} is the resistance the capacitor discharges through. With ${g.text} empty, the battery is cut off.${sideBySide}`
   }
-  return `${lead} Bigger ${m('R')} or ${m('C')} means slower filling and emptying.`
+  return `${lead} A larger ${m('R')} or ${m('C')} means slower charging and discharging.`
 }
 
 /**
@@ -231,7 +231,7 @@ const ROWS: Row[] = [
     html: ({ b, slots }) => {
       const filled = LANES.filter(id => slots[id])
       if (!filled.length) return eq(`\\frac{1}{${RP}} = \\frac{1}{${sym('R2')}} + \\frac{1}{${sym('R3')}} + \\frac{1}{${sym('R4')}}`)
-        + say(`All three branch slots are empty, so no current gets from B to C. Put a part in ${slotWord('R2')}, ${slotWord('R3')} or ${slotWord('R4')}.`)
+        + say(`All three branch slots are empty, so no current flows from B to C. Place a part in ${slotWord('R2')}, ${slotWord('R3')} or ${slotWord('R4')}.`)
       const top = `\\frac{1}{${RP}} = ${filled.map(id => `\\frac{1}{${sym(id)}}`).join(' + ')}`
       const hasWire = filled.some(id => slots[id]!.kind === 'wire')
       const sub = hasWire
@@ -239,9 +239,9 @@ const ROWS: Row[] = [
         : `${RP} = ${grp(`\\left(${filled.map(id => `\\frac{1}{${ohmNum(slots, id)}}`).join(' + ')}\\right)^{-1} = ${num('Rp', b.Rp, 'Ω')}`)}`
       const resistors = filled.filter(id => slots[id]!.kind === 'resistor')
       const words = hasWire
-        ? `A wire in one branch makes ${m(`${RP} = 0\\,\\Omega`)}, so all the current takes the wire.`
+        ? `A wire in one branch makes ${m(`${RP} = 0\\,\\Omega`)}, so all the current flows through the wire.`
         : resistors.length > 1
-          ? `${m(RP)} is smaller than the smallest branch: each branch gives the current one more way through.`
+          ? `${m(RP)} is smaller than the smallest branch, because each branch adds another path.`
           : `Only ${slotWord(resistors[0]!)} is filled, so ${m(`${RP} = R_{${resistors[0]!.slice(1)}}`)}.`
       return eq(top) + eq(sub, ' sim02-sub') + say(words)
     },
@@ -255,7 +255,7 @@ const ROWS: Row[] = [
         return eq(top) + eq(`${REQ} = ${num('Req', Infinity, 'Ω')}`, ' sim02-sub') + say(`${cap1(g.text)} ${g.many ? 'are' : 'is'} empty, so the circuit is open and no current flows.`)
       }
       const sub = `${REQ} = ${ohmNum(slots, 'R1')} + ${num('Rp', b.Rp, 'Ω')} + ${grp(`${ohmNum(slots, 'R5')} = ${num('Req', b.Req, 'Ω')}`)}`
-      return eq(top) + eq(sub, ' sim02-sub') + say('Resistances in series just add up.')
+      return eq(top) + eq(sub, ' sim02-sub') + say('Resistances in series add.')
     },
   },
   {
@@ -263,10 +263,10 @@ const ROWS: Row[] = [
     html: ({ b }) => {
       const top = `I = \\frac{\\varepsilon}{${REQ} + r}`
       if (b.idealShort) return eq(top) + eq(`I = \\frac{${num('emf', b.emf, 'V')}}{0\\,\\Omega}`, ' sim02-sub')
-        + say(`The bottom of the fraction is 0, and you can't divide by 0, so the current has no number. Raise ${m('r')} or remove a wire.`)
+        + say(`The denominator is 0, so the current is undefined. Raise ${m('r')} or remove a wire.`)
       if (b.status === 'open') return eq(top) + eq(`I = ${num('I', 0, 'A')}`, ' sim02-sub') + say('The circuit is open, so the battery current is 0.')
       const sub = `I = ${grp(`\\frac{${num('emf', b.emf, 'V')}}{${num('Req', b.Req, 'Ω')} + ${num('r', b.r, 'Ω', 'exact')}} = ${num('I', b.I, 'A')}`)}`
-      const words = b.status === 'short' ? `Short circuit: only ${m('r')} inside the battery holds the current back.` : 'Less total resistance means more current.'
+      const words = b.status === 'short' ? `Short circuit: only the internal resistance ${m('r')} limits the current.` : 'A smaller total resistance gives a larger current.'
       return eq(top) + eq(sub, ' sim02-sub') + say(words)
     },
   },
@@ -274,7 +274,7 @@ const ROWS: Row[] = [
     id: 'terminal', rank: 3, mode: 'dc', title: 'Battery terminal voltage', check: 'terminal',
     html: ({ b }) => {
       const top = `${VT} = \\varepsilon - I r`
-      if (b.idealShort) return eq(top) + say('The current has no number, so the terminal voltage has none either.')
+      if (b.idealShort) return eq(top) + say('The current is undefined, so the terminal voltage is undefined too.')
       // ε and V_terminal print with the loop row's decimals (when that row prints its sum), so both show one V_terminal
       const d: Fmt = b.status === 'open' ? 'sig3' : loopFmt(b)
       const sub = `${VT} = ${num('emf', b.emf, 'V', d)} - ${grp(`(${num('I', b.I, 'A')})(${num('r', b.r, 'Ω', 'exact')}) = ${num('Vt', b.Vt, 'V', d)}`)}`
@@ -282,7 +282,7 @@ const ROWS: Row[] = [
         ? `All ${m(`${texNum(sig3(b.emf))}\\,\\text{V}`)} drops across ${m('r')} inside the battery, so the terminal voltage is 0 V.`
         : b.r === 0
           ? `With ${m('r = 0')}, the terminal voltage equals ${m('\\varepsilon')}.`
-          : b.I === 0 ? `With no current, nothing drops across ${m('r')}, so the terminal voltage equals ${m('\\varepsilon')}.` : `Some voltage (${m('Ir')}) drops across ${m('r')} inside the battery, so the terminal voltage is less than ${m('\\varepsilon')}.`
+          : b.I === 0 ? `With no current, nothing drops across ${m('r')}, so the terminal voltage equals ${m('\\varepsilon')}.` : `The drop ${m('Ir')} across ${m('r')} makes the terminal voltage less than ${m('\\varepsilon')}.`
       return eq(top) + eq(sub, ' sim02-sub') + say(words)
     },
   },
@@ -293,11 +293,11 @@ const ROWS: Row[] = [
       if (!Number.isFinite(k.tau)) {
         const g = gapList(c.b)
         return eq('\\tau = RC') + say(g.text
-          ? `${cap1(g.text)} ${g.many ? 'are' : 'is'} empty, so the capacitor has no loop to fill or empty through.`
-          : 'The capacitor has no loop to fill or empty through.')
+          ? `${cap1(g.text)} ${g.many ? 'are' : 'is'} empty, so the capacitor has no loop to charge or discharge through.`
+          : 'The capacitor has no loop to charge or discharge through.')
       }
       if (k.tau === 0) return eq('\\tau = RC') + eq(`\\tau = (${num('Rth', 0, 'Ω')})(${num('C', k.C, 'F', 'exact')}) = ${num('tau', 0, 's')}`, ' sim02-sub')
-        + say(`Only plain wire is in the capacitor's path, so ${m('R = 0\\,\\Omega')} and the capacitor jumps straight to the final voltage.`)
+        + say(`Only wire is in the capacitor's path, so ${m('R = 0\\,\\Omega')} and the capacitor jumps straight to the final voltage.`)
       const R = capResistance(c.slots, k.id, c.b.r, c.b.batteryOut)
       return eq('\\tau = RC')
         + eq(`R = ${grp(`${R.tex} = ${num('Rth', k.Rth, 'Ω')}`)}`, ' sim02-sub')
@@ -310,8 +310,8 @@ const ROWS: Row[] = [
     html: c => {
       const k = c.b.cap!
       const t = c.rc!
-      if (!Number.isFinite(k.tau)) return eq('I_C = 0') + say('No loop goes through the capacitor.')
-      if (k.tau === 0) return eq('I_C = 0') + say(`With ${m('R = 0\\,\\Omega')} the capacitor got to the final voltage at once, so no current flows now.`)
+      if (!Number.isFinite(k.tau)) return eq('I_C = 0') + say('No loop passes through the capacitor.')
+      if (k.tau === 0) return eq('I_C = 0') + say(`With ${m('R = 0\\,\\Omega')} the capacitor reached the final voltage instantly, so no current flows now.`)
       const kind = rcCase(c)
       if (kind === 'settled') return eq('I_C = 0') + say('The capacitor is already at the final voltage, so no current flows.')
       const tt = num('t', t.t, 's')
@@ -321,14 +321,14 @@ const ROWS: Row[] = [
         return eq(`I_C(t) = -\\frac{Q}{RC}\\,e^{-t/\\tau}`)
           + eq(end ? endLine(c, `I_C \\approx 0\\,\\text{A}`)
             : `I_C = ${grp(`-\\frac{${num('Q0', k.C * t.V0, 'C')}}{${tauN}}\\,e^{-${tt}/${tauN}}`)} = ${num('Ic', k.Ic, 'A')}`, ' sim02-sub')
-          + say(`The minus sign means the current flows out of the capacitor. After each ${m('\\tau')}, only 37% of the current is left.`)
+          + say(`The minus sign means the current flows opposite to the charging current. After each ${m('\\tau')}, 37% of the current remains.`)
       }
       const I0 = kind === 'charge' ? `I_0 = \\frac{\\varepsilon}{R}` : kind === 'fill' ? `I_0 = \\frac{${VEND}}{R}` : `I_0 = \\frac{${VEND} - V_0}{R}`
       const words = kind === 'charge'
-        ? `The current starts at ${m('\\varepsilon/R')}, as if the capacitor were a wire, and drops to 37% of that after one ${m('\\tau')}.`
+        ? `The current starts at ${m('\\varepsilon/R')}, as if the capacitor were a wire, and falls to 37% of that after one ${m('\\tau')}.`
         : kind === 'fill'
-          ? `The capacitor only fills to ${m(`${VEND} = ${texNum(sig3(t.Voc))}\\,\\text{V}`)}${LANES.includes(k.id) ? ', the voltage across the capacitor\'s branch' : ''}, so ${m(`I_0 = ${VEND}/R`)}.`
-          : `The capacitor started at ${m(`${texNum(sig3(t.V0))}\\,\\text{V}`)}${Math.abs(t.Voc - c.b.emf) > 1e-4 * Math.max(1, c.b.emf) ? ` and heads for ${m(`${VEND} = ${texNum(sig3(t.Voc))}\\,\\text{V}`)} instead of the battery's full ${m('\\varepsilon')}` : ' instead of empty'}, so ${m('I_0')} uses the difference.`
+          ? `The capacitor only charges to ${m(`${VEND} = ${texNum(sig3(t.Voc))}\\,\\text{V}`)}${LANES.includes(k.id) ? ', the voltage across the capacitor\'s branch' : ''}, so ${m(`I_0 = ${VEND}/R`)}.`
+          : `The capacitor starts at ${m(`V_0 = ${texNum(sig3(t.V0))}\\,\\text{V}`)} and ends at ${m(`${VEND} = ${texNum(sig3(t.Voc))}\\,\\text{V}`)}, so ${m(`I_0 = (${VEND} - V_0)/R`)}.`
       return eq(`I_C(t) = I_0\\,e^{-t/\\tau}, \\quad ${I0}`)
         + eq(end ? endLine(c, `I_C \\approx 0\\,\\text{A}`) : `I_C = ${grp(`(${num('I0', t.I0, 'A')})\\,e^{-${tt}/${tauN}}`)} = ${num('Ic', k.Ic, 'A')}`, ' sim02-sub')
         + say(words)
@@ -341,9 +341,9 @@ const ROWS: Row[] = [
       const t = c.rc!
       const V = `${m('V_C = q/C')}`
       const qcv = eq(`q = C V_C = ${grp(`(${num('C', k.C, 'F', 'exact')})(${num('Vc', k.Vc, 'V')}) = ${num('q', k.q, 'C')}`)}`)
-      if (!Number.isFinite(k.tau)) return qcv + say(`With no loop, no charge can get on or off the plates, so ${m('q')} stays the same.`)
+      if (!Number.isFinite(k.tau)) return qcv + say(`With no loop, charge cannot move on or off the plates, so ${m('q')} stays the same.`)
       if (k.tau === 0) return qcv + say(Math.abs(k.Vc) < 1e-9
-        ? `The wire beside the capacitor holds ${m('V_C')} at 0 V, so the capacitor holds no charge.`
+        ? `The wire in parallel with the capacitor holds ${m('V_C')} at 0 V, so the capacitor holds no charge.`
         : `With ${m('R = 0\\,\\Omega')} the capacitor jumped straight to the final voltage, so ${m('q')} stays the same.`)
       const kind = rcCase(c)
       if (kind === 'settled') return qcv + say(`The capacitor is already at the final voltage, so ${m('q')} stays the same.`)
@@ -363,7 +363,7 @@ const ROWS: Row[] = [
       if (kind === 'fill') {
         return eq(`q(t) = ${QEND}\\left(1 - e^{-t/\\tau}\\right), \\quad ${QEND} = C\\,${VEND}`)
           + eq(end ? endLine(c, `q \\approx ${QEND} = ${num('q', k.q, 'C')}`) : `q = ${grp(`(${num('qend', k.C * t.Voc, 'C')})\\left(1 - e^{-${tt}/${tauN}}\\right)`)} = ${num('q', k.q, 'C')}`, ' sim02-sub')
-          + say(`The capacitor fills to ${m(`${QEND} = C\\,${VEND}`)}, not ${m('C\\varepsilon')}. With ${V}, ${m('V_C')} = ${num0(k.Vc, 'V')}.`)
+          + say(`The capacitor charges to ${m(`${QEND} = C\\,${VEND}`)}, not ${m('C\\varepsilon')}. With ${V}, ${m('V_C')} = ${num0(k.Vc, 'V')}.`)
       }
       return eq(`q(t) = ${QEND} + (q_0 - ${QEND})\\,e^{-t/\\tau}`)
         + eq(end ? endLine(c, `q \\approx ${QEND} = ${num('q', k.q, 'C')}`)
@@ -382,10 +382,10 @@ const ROWS: Row[] = [
       const sub = `${num('I', b.I, 'A', d)} = ${filled.map((id, j) => num(`I-${id}`, Is[j]!, 'A', d, j > 0)).join(' + ')}`
       const bypass = b.bypassed.length ? ` The wire branch carries all the current, so ${b.bypassed.map(id => m(`R_${id.slice(1)}`)).join(' and ')} get${b.bypassed.length > 1 ? '' : 's'} 0 A.` : ''
       const words = b.batteryOut
-        ? `The branch currents add back up to ${m('I')}, the current in the wire where the battery was.`
+        ? `The branch currents add up to ${m('I')}, the current in the wire that replaced the battery.`
         : b.status === 'open' && b.cap && b.cap.Ic !== 0
-          ? `The battery is cut off, so ${m('I = 0')}: the capacitor's current comes back through the other branches, and the branch currents add to 0.`
-          : `The branch currents add back up to the battery current ${m('I')}.`
+          ? `The battery is cut off, so ${m('I = 0')}: the capacitor's current returns through the other branches, and the branch currents sum to 0.`
+          : `The branch currents add up to the battery current ${m('I')}.`
       return eq(top) + eq(sub, ' sim02-sub') + say(`${words}${bypass}`)
     },
   },
@@ -394,7 +394,7 @@ const ROWS: Row[] = [
     html: ({ b, slots }) => {
       const out = b.batteryOut
       const top = `${out ? '' : '\\varepsilon - I r '}- ${vSym(slots, 'R1')} - ${VP} - ${vSym(slots, 'R5')} = 0`
-      if (b.idealShort) return eq(top) + say("The current has no number, so this sum can't be filled in.")
+      if (b.idealShort) return eq(top) + say('The current is undefined, so this sum cannot be evaluated.')
       const g = gapList(b)
       if (b.status === 'open' && b.cap && b.cap.Ic !== 0) return eq(top) + say('The battery is cut off, so no current flows around this loop. The capacitor current flows in a smaller loop through the branches.')
       if (b.status === 'open' && b.cap) return eq(top) + say(`${cap1(g.text)} ${g.many ? 'are' : 'is'} empty, so no current flows around this loop.`)
@@ -411,7 +411,7 @@ const ROWS: Row[] = [
       const sub = out ? `- ${parts}` : `${num('emf', b.emf, 'V', d)} - ${num('Ir', terms[1]!, 'V', d, true)} - ${parts}`
       const inLane = !!b.cap && LANES.includes(b.cap.id)
       const words = out
-        ? `With the battery out, ${m('\\varepsilon = 0')} and ${m('r = 0')}, so the voltages across the parts add to 0 on their own.${inLane ? ` Here ${m(VP)} is the capacitor voltage ${m('V_C')}.` : ''}`
+        ? `With the battery out, ${m('\\varepsilon = 0')} and ${m('r = 0')}, so the voltages across the parts add to 0.${inLane ? ` Here ${m(VP)} is the capacitor voltage ${m('V_C')}.` : ''}`
         : b.cap
           ? `The voltages around the loop add to 0 at every instant, including the capacitor voltage ${m('V_C')}.${inLane ? ` Here ${m(VP)} is the capacitor voltage ${m('V_C')}.` : ''}`
           : b.status === 'short'
@@ -429,26 +429,26 @@ const ROWS: Row[] = [
       const rd = b.slots[id]
       const n = m(`R_${id.slice(1)}`)
       if (part.kind === 'capacitor') return eq(`q = C V_C = ${grp(`(${num('C', part.farads, 'F', 'exact')})(${num('Vc', rd?.V ?? 0, 'V')}) = ${num('q', b.cap?.q ?? 0, 'C')}`)}`)
-        + say('More capacitance or more voltage means more charge.')
+        + say('A larger C or V stores more charge.')
       if (part.kind === 'wire') return eq(`${sym(id, 'V')} = ${sym(id, 'I')}\\,${sym(id)} = ${grp(`(${num(`I-${id}`, rd?.I ?? 0, 'A')})(0\\,\\Omega) = 0\\,\\text{V}`)}`)
-        + say(`A wire in ${n} has 0 Ω, so the wire drops 0 V and makes no heat.`)
+        + say(`A wire in ${n} has 0 Ω, so the wire drops 0 V and produces no heat.`)
       if (!rd || !Number.isFinite(rd.I)) return eq(`${sym(id, 'V')} = ${sym(id, 'I')}\\,${sym(id)}`)
       return eq(`${sym(id, 'V')} = ${sym(id, 'I')}\\,${sym(id)} = ${grp(`(${num(`I-${id}`, rd.I, 'A')})(${ohmNum(slots, id)}) = ${num(`V-${id}`, rd.V, 'V')}`)}`)
         + eq(`P_{${id.slice(1)}} = ${sym(id, 'I')}^{2}\\,${sym(id)} = ${grp(`(${num(`I-${id}`, rd.I, 'A')})^{2}(${ohmNum(slots, id)}) = ${num(`P-${id}`, rd.P, 'W')}`)}`)
-        + say(rd.I === 0 ? `No current flows through ${n}, so ${n} has no voltage and makes no heat.` : `${n} turns this power into heat.`)
+        + say(rd.I === 0 ? `No current flows through ${n}, so ${n} has no voltage and produces no heat.` : `${n} converts this power into heat.`)
     },
   },
   {
     id: 'energy', rank: 7, mode: 'dc', title: 'Power balance', check: 'energy',
     html: ({ b, slots }) => {
       const top = `I\\varepsilon = I^{2} r + \\sum I^{2} R`
-      if (b.idealShort) return eq(top) + say("The current has no number, so this sum can't be filled in.")
+      if (b.idealShort) return eq(top) + say('The current is undefined, so this sum cannot be evaluated.')
       const parts = SLOT_IDS.filter(id => slots[id]?.kind === 'resistor')
       const Ps = parts.map(id => b.slots[id]?.P ?? 0)
       const d = `d${sharedDecimals([b.Pemf, b.Pr, ...Ps], n => n[0]! - n.slice(1).reduce((s, x) => s + x, 0))}` as Fmt
       const named = parts.length ? eq(`I\\varepsilon = I^{2} r + ${parts.map(id => sym(id, 'P')).join(' + ')}`, ' sim02-sub') : ''
       const sub = `${num('Pemf', b.Pemf, 'W', d)} = ${num('Pr', b.Pr, 'W', d)} + ${parts.length ? parts.map((id, j) => num(`P-${id}`, Ps[j]!, 'W', d, true)).join(' + ') : '0\\,\\text{W}'}`
-      return eq(top) + named + eq(sub, ' sim02-sub') + say(`All the battery's power, ${m('I\\varepsilon')}, turns into heat: in ${m('r')} inside the battery and in every resistor.`)
+      return eq(top) + named + eq(sub, ' sim02-sub') + say(`All of the battery's power, ${m('I\\varepsilon')}, becomes heat: in ${m('r')} and in every resistor.`)
     },
   },
 ]

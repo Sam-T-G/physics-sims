@@ -27,27 +27,27 @@ export function statusFor(b: BoardResult, slots: Slots, r: number, cleared: bool
   const warn = b.status === 'short' || b.bypassed.length > 0
   // non-breaking spaces keep "r = 0.5 Ω" on one line
   const rIs = (v: string) => `r\u00a0=\u00a0${v}`
-  if (b.idealShort) return { html: `Short circuit with ${rIs('0')}: the current has no number. Raise r or remove a wire.`, warn }
-  if (b.status === 'short') return { html: `Short circuit: only ${rIs(`${exact(r)}\u00a0Ω`)} inside the battery holds the current back.`, warn }
+  if (b.idealShort) return { html: `Short circuit with ${rIs('0')}: the current is undefined. Raise r or remove a wire.`, warn }
+  if (b.status === 'short') return { html: `Short circuit: only the internal resistance ${rIs(`${exact(r)}\u00a0Ω`)} limits the current.`, warn }
   if (b.status === 'open') {
     const g = gapWords(b.gaps)
     const verb = g.plural ? 'are' : 'is'
     if (b.cap && !Number.isFinite(b.cap.tau)) {
-      return { html: `${g.text} ${verb} empty, so the capacitor has no loop to fill or empty through<span class="sim02-long">, so the capacitor's charge stays the same</span>.`, warn: false }
+      return { html: `${g.text} ${verb} empty, so the capacitor has no loop to charge or discharge through.<span class="sim02-long"> The capacitor's charge stays the same.</span>`, warn: false }
     }
     if (b.cap && b.cap.Ic !== 0) {
       const path = drainPath(b)
-      return { html: `The empty ${g.text} slot${g.plural ? 's cut' : ' cuts'} the battery off.${path ? `<span class="sim02-long"> The capacitor empties through ${path}.</span>` : ''}`, warn: false }
+      return { html: `The empty ${g.text} slot${g.plural ? 's cut' : ' cuts'} off the battery.${path ? `<span class="sim02-long"> The capacitor discharges through ${path}.</span>` : ''}`, warn: false }
     }
     return { html: `Open circuit: ${g.text} ${verb} empty<span class="sim02-long">, so no current flows</span>.`, warn: false }
   }
   if (b.batteryOut) {
     const path = drainPath(b)
-    return { html: path ? `Battery out: the capacitor empties through ${path}.` : 'Battery out, and the capacitor is empty.', warn: false }
+    return { html: path ? `Battery out: the capacitor discharges through ${path}.` : 'Battery out, and the capacitor is uncharged.', warn: false }
   }
   if (b.bypassed.length) {
     // a full capacitor in the loop: nothing flows anywhere, so no wire "carries all the current"
-    if (b.cap && Object.values(b.slots).every(sl => Math.abs(sl?.I ?? 0) < 1e-9)) return { html: 'The capacitor is full, so no current flows.', warn: false }
+    if (b.cap && Object.values(b.slots).every(sl => Math.abs(sl?.I ?? 0) < 1e-9)) return { html: 'The capacitor is fully charged, so no current flows.', warn: false }
     const wires = (['R2', 'R3', 'R4'] as const).filter(id => slots[id]?.kind === 'wire').map(id => SUB[id]!)
     const names = b.bypassed.map(id => SUB[id]).join(' and ')
     const many = wires.length > 1

@@ -171,7 +171,7 @@ export function lookTargets(t: Targets): Targets {
 
 // ---------- the line that names what came back ----------
 const NAME: Record<Qty, string> = {
-  I: 'Battery current', Ic: 'Capacitor current', V: 'Terminal voltage', Vc: 'Capacitor voltage', P: 'Power made by the battery, Iε', R: 'Total resistance of the parts, not counting r', tau: 'Time constant', q: 'Charge on the capacitor',
+  I: 'Battery current', Ic: 'Capacitor current', V: 'Terminal voltage', Vc: 'Capacitor voltage', P: 'Power produced by the battery, Iε', R: 'Total resistance of the parts, not counting r', tau: 'Time constant', q: 'Charge on the capacitor',
 }
 /** For screen readers, at the reveal: the covered values that came back, e.g. "Capacitor voltage: 9.00 V." */
 export function liftLine(r: Resolved | null, s: GuideState, fmt: (x: number, unit: string) => string): string {

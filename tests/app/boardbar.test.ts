@@ -23,7 +23,7 @@ describe('status line', () => {
     const s: Slots = { R1: { kind: 'wire' }, R2: { kind: 'wire' }, R3: { kind: 'resistor', ohms: 6 }, R4: { kind: 'wire' }, R5: { kind: 'capacitor', farads: 0.5 } }
     const b = solveBoard({ emf: 12, r: 0, slots: s, capV: 12 })
     expect(b.bypassed.length).toBeGreaterThan(0)
-    expect(statusFor(b, s, 0, false)).toEqual({ html: 'The capacitor is full, so no current flows.', warn: false })
+    expect(statusFor(b, s, 0, false)).toEqual({ html: 'The capacitor is fully charged, so no current flows.', warn: false })
   })
   it('words an open circuit with the gaps, the reason hidden on phones', () => {
     const one: Slots = { R2: { kind: 'resistor', ohms: 6 }, R5: { kind: 'wire' } }
@@ -34,7 +34,7 @@ describe('status line', () => {
   it('words a cut-off battery with a discharging capacitor in one short line on phones', () => {
     const cut: Slots = { R2: { kind: 'resistor', ohms: 6 }, R3: { kind: 'capacitor', farads: 0.5 }, R5: { kind: 'wire' } }
     const b = solveBoard({ emf: 12, r: 0, slots: cut, capV: 9 })
-    expect(statusFor(b, cut, 0, false).html).toBe('The empty R₁ slot cuts the battery off.<span class="sim02-long"> The capacitor empties through R₂.</span>')
+    expect(statusFor(b, cut, 0, false).html).toBe('The empty R₁ slot cuts off the battery.<span class="sim02-long"> The capacitor discharges through R₂.</span>')
   })
   it('an open circuit stays calm even when a wire also bypasses a branch; a short stays red', () => {
     const s: Slots = { R2: { kind: 'wire' }, R3: { kind: 'resistor', ohms: 6 }, R4: { kind: 'capacitor', farads: 0.5 }, R5: { kind: 'wire' } }
@@ -51,7 +51,7 @@ describe('status line', () => {
   })
   it('keeps the short-circuit wording', () => {
     const short: Slots = { R1: { kind: 'wire' }, R2: { kind: 'wire' }, R5: { kind: 'wire' } }
-    expect(statusFor(board(short, 12, 0.5), short, 0.5, false).html).toBe('Short circuit: only r = 0.5 Ω inside the battery holds the current back.'.replace(/ = 0.5 Ω/, '\u00a0=\u00a00.5\u00a0Ω'))
+    expect(statusFor(board(short, 12, 0.5), short, 0.5, false).html).toBe('Short circuit: only the internal resistance r = 0.5 Ω limits the current.'.replace(/ = 0.5 Ω/, '\u00a0=\u00a00.5\u00a0Ω'))
   })
 })
 

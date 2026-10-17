@@ -517,7 +517,7 @@ export const PRESETS: readonly Preset[] = [
     book: [
       { label: 'I', value: '1.188 A', unit: 'A', of: b => b.I },
       // Book p. 411 prints 11.90 V, but 12.00 − (1.188)(0.100) = 11.881 V
-      { label: 'V_terminal', value: '11.90 V', unit: 'V', of: b => b.Vt, note: 'The book prints 11.90 V, but the math gives 11.88 V.' },
+      { label: 'V_terminal', value: '11.90 V', unit: 'V', of: b => b.Vt, note: 'The book prints 11.90 V; 12.00 V − (1.188 A)(0.100 Ω) = 11.88 V.' },
     ],
   },
   {

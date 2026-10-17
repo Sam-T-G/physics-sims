@@ -97,7 +97,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
         <div class="sim02-slots" role="group" aria-label="Slots on the board"></div>
         <div class="sim02-pop" hidden></div>
         <p class="sim02-status" role="status" aria-live="polite"></p>
-        <p class="sim02-replay" aria-hidden="true">Replay: the capacitor starts over.</p>
+        <p class="sim02-replay" aria-hidden="true">Replaying from t = 0</p>
         <div class="sim02-boardbar" role="group" aria-label="Board controls">
           <div class="bb-left">
             <button class="sim02-recenter bb-btn is-home" type="button" aria-label="Reset view">${svgIcon(ICON_VIEW)}<span class="bb-word">Reset view</span></button>
@@ -117,7 +117,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
         <div class="sim02-dock-cell">
           <p class="sim02-dock-hint">Drag a part onto a slot, or tap a part and then a slot.</p>
           <p class="sim02-dock-hint sim02-dock-locked" hidden>Parts unlock after you predict.</p>
-          <p class="sim02-preview-pill" aria-hidden="true">Let go to place the part</p>
+          <p class="sim02-preview-pill" aria-hidden="true">Release to place the part</p>
         </div>
         <div class="sim02-tray" role="toolbar" aria-label="Parts"></div>
       </div>
@@ -125,7 +125,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
     <aside class="sim02-notebook">
       <header class="sim02-head">
         <h1>${meta.title}</h1>
-        <p>Drag resistors, wires and a capacitor onto the board, and watch the current and voltage change.</p>
+        <p>Build circuits from resistors, wires and a capacitor. Every current and voltage updates as the board changes.</p>
         <div class="sim02-tour-slot"></div>
       </header>
       <div class="sim02-guide-slot"></div>
@@ -133,7 +133,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
         <h2><span class="sim02-mini-batt" aria-hidden="true"></span>Battery</h2>
         <label class="sim02-slider"><span class="sim02-slider-name" id="sim02-emf-name">Battery emf, <i>ε</i></span><output class="sim02-out" data-for="emf"></output>
           <input type="range" name="emf" min="1" max="24" step="0.5" aria-labelledby="sim02-emf-name" /></label>
-        <label class="sim02-slider"><span class="sim02-slider-name" id="sim02-r-name">Resistance inside the battery, <i>r</i></span><output class="sim02-out" data-for="r"></output>
+        <label class="sim02-slider"><span class="sim02-slider-name" id="sim02-r-name">Internal resistance, <i>r</i></span><output class="sim02-out" data-for="r"></output>
           <input type="range" name="r" min="0" max="2" step="0.05" aria-labelledby="sim02-r-name" /></label>
       </section>
       <div class="sim02-time-slot"></div>
@@ -149,19 +149,19 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
       <details class="sim02-approx">
         <summary>Simplifications</summary>
         <ul>
-          <li>Wires have 0 Ω, and the battery is a perfect voltage source plus one resistance <i>r</i> inside.</li>
-          <li>Resistors keep the same <i>R</i> even when they heat up.</li>
-          <li>The capacitors are huge (farads), so filling takes seconds instead of a tiny fraction of a second. One capacitor at a time.</li>
-          <li>Changing <i>C</i> keeps the charge on the plates the same, so the capacitor's voltage changes instead.</li>
-          <li>A wire across the capacitor empties the capacitor instantly. A real wire would take a tiny moment.</li>
-          <li>The capacitor's curve replays on a loop. A real capacitor doesn't reset itself.</li>
-          <li>The dots show which way current flows, and faster dots mean more current. Real charges move much slower.</li>
+          <li>Wires have 0 Ω. The battery is an ideal emf <i>ε</i> in series with one internal resistance <i>r</i>.</li>
+          <li>Resistors keep a fixed <i>R</i> even as they heat up.</li>
+          <li>The capacitors are 0.05 to 5 F, far larger than typical, so charging takes seconds. One capacitor at a time.</li>
+          <li>Changing <i>C</i> keeps the charge on the plates fixed, so the capacitor's voltage changes instead.</li>
+          <li>A wire across the capacitor discharges the capacitor instantly; with 0 Ω the discharge current is undefined. A real wire's small resistance makes the discharge fast but finite.</li>
+          <li>The capacitor's curve replays in a loop. A real capacitor does not reset.</li>
+          <li>The dots show the direction of current; faster dots mean more current. Real charges drift far more slowly.</li>
           <li>A ✓ on an equation means the equation gives the same number as the board.</li>
         </ul>
       </details>
       <footer class="sim02-sources" aria-labelledby="sim02-sources-h">
         <h2 id="sim02-sources-h">Credits</h2>
-        <p>Based on <a href="https://openstax.org/details/books/university-physics-volume-2" target="_blank" rel="noopener"><cite>University Physics Volume 2</cite></a> by William Moebs, Samuel J. Ling and Jeff Sanny (OpenStax), licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>. Access for free at <a href="https://openstax.org" target="_blank" rel="noopener">openstax.org</a>. The text is reworded, and the book's examples are rebuilt as circuits you can change.</p>
+        <p>Based on <a href="https://openstax.org/details/books/university-physics-volume-2" target="_blank" rel="noopener"><cite>University Physics Volume 2</cite></a> by William Moebs, Samuel J. Ling and Jeff Sanny (OpenStax), licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>. Access for free at <a href="https://openstax.org" target="_blank" rel="noopener">openstax.org</a>. Text paraphrased; worked examples rebuilt as interactive circuits.</p>
       </footer>
     </aside>`
 
@@ -695,7 +695,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
       const qI = mask.get(isC ? [`I@${id}`, 'Ic'] : [`I@${id}`], 'label') === 'hide'
       const qV = mask.get(isC ? [`V@${id}`, 'Vc'] : [`V@${id}`], 'label') === 'hide'
       const Q = (u: string) => `<span class="sim02-q">? ${u}</span>`
-      const rI = qI ? Q('A') : !Number.isFinite(rd?.I ?? 0) ? 'no number' : reading(rd?.I ?? 0, 'A')
+      const rI = qI ? Q('A') : !Number.isFinite(rd?.I ?? 0) ? 'undefined' : reading(rd?.I ?? 0, 'A')
       const read = !rd ? '' : part.kind === 'wire' ? rI : `${rI}, ${qV ? Q('V') : reading(rd.V, 'V')}`
       // the reading changes every frame on a curve: change its text in place, so the span (and its fade-in) stays
       const shell = `<span class="sim02-label-top">${name}<span class="sim02-label-val">${val}</span></span>${read ? '<span class="sim02-label-read"></span>' : ''}`
@@ -732,7 +732,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
       const isC = p?.kind === 'capacitor'
       const showI = !!rd && mask.get(isC ? [`I@${id}`, 'Ic'] : [`I@${id}`], 'label') !== 'hide'
       const showV = !!rd && p?.kind !== 'wire' && mask.get(isC ? [`V@${id}`, 'Vc'] : [`V@${id}`], 'label') !== 'hide'
-      const read = [showI ? (Number.isFinite(rd!.I) ? reading(rd!.I, 'A') : 'the current has no number') : '', showV ? reading(rd!.V, 'V') : ''].filter(Boolean).join(', ')
+      const read = [showI ? (Number.isFinite(rd!.I) ? reading(rd!.I, 'A') : 'the current is undefined') : '', showV ? reading(rd!.V, 'V') : ''].filter(Boolean).join(', ')
       const what = !p ? 'empty' : `${partLabel(p)}${read ? `, ${read}` : ''}`
       const action = holding ? `Press to place the ${partLabel(holding)} here.` : p ? `Press to change or remove the ${partLabel(p)}.` : 'Pick a part from the tray first.'
       const label = `Slot ${SUB[id]}, ${what}. ${action}`
@@ -946,8 +946,8 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
       s[lock] = drag.piece.view.part
     }
     // the bar says what the release does: a part held off the board leaves it, a tray part over no slot goes back
-    pill.textContent = lock ? `Let go to place the part in ${SUB[lock]}`
-      : drag.from ? `Let go to remove ${SUB[drag.from]}` : 'Let go to put the part back'
+    pill.textContent = lock ? `Release to place the part in ${SUB[lock]}`
+      : drag.from ? `Release to remove ${SUB[drag.from]}` : 'Release to return the part to the tray'
     apply(s, { preview: true })
   }
 
@@ -1020,7 +1020,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
     if (Math.abs(v) < 1e-3 || mask.status) return
     setStatus(result.batteryOut
       ? "You turned the charged capacitor around, so the capacitor's + plate now faces the other way."
-      : `You turned the charged capacitor around, so the capacitor's voltage now pushes ${v < 0 ? 'the same way as' : 'against'} the battery.`, false)
+      : `You turned the charged capacitor around, so the capacitor's voltage now ${v < 0 ? 'adds to' : 'opposes'} the battery's emf.`, false)
   }
 
   // ---------- canvas input ----------
@@ -1216,7 +1216,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
       ? dial(SUB[id]!, `Resistance of ${SUB[id]}`, `the resistance of ${SUB[id]}`, 'ohm', 'Ω', OHM_STEPS, part.ohms) + remove(SUB[id]!, SUB[id]!)
       : part.kind === 'capacitor'
         ? dial(docked ? 'C' : 'Capacitor', 'Capacitance of the capacitor', 'the capacitance', 'farad', 'F', FARAD_STEPS, part.farads)
-          + `<button type="button" class="sim02-pop-empty">${docked ? 'Empty C' : 'Empty the capacitor'}</button>` + remove('the capacitor', 'C')
+          + `<button type="button" class="sim02-pop-empty">${docked ? 'Discharge' : 'Discharge the capacitor'}</button>` + remove('the capacitor', 'C')
         : `<p class="sim02-pop-name">Wire in ${SUB[id]}</p>${docked ? '' : '<p class="sim02-small">Wires are 0 Ω and have no setting.</p>'}${remove('the wire', 'the wire')}`
     if (!reduce) run(animate(pop, { scale: [docked ? 0.9 : 0.6, 1], opacity: [0, 1] }, { type: 'spring', stiffness: 420, damping: 20 }))
     pop.querySelectorAll<HTMLButtonElement>('[data-step]').forEach(b => b.addEventListener('click', () => stepOhms(Number(b.dataset.step))))
@@ -1369,7 +1369,7 @@ export function mount(el: HTMLElement, _opts: MountOptions = {}): void {
     loadSlots({})
     armUndo(snap, 'clear')
   }
-  const UNDONE = 'The board is back the way it was.'
+  const UNDONE = 'Board restored.'
   const doUndo = () => {
     if (inTour) return
     const s = undo.take()

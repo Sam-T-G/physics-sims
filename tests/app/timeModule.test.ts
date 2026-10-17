@@ -72,11 +72,11 @@ describe('time module: guide line label', () => {
 
 describe('time module: the note under the time', () => {
   it('says what the curve is doing, with no stray em dashes', () => {
-    expect(note({ settled: true })).toBe('After 5τ, the capacitor is more than 99% of the way there.')
-    expect(note({ settled: true, hold: 0.2 })).toMatch(/Starting over at <i>t<\/i> = 0\.$/)
+    expect(note({ settled: true })).toBe('After 5τ, more than 99% of the change is complete.')
+    expect(note({ settled: true, hold: 0.2 })).toMatch(/Replaying from <i>t<\/i> = 0\.$/)
     expect(note({ kind: 'flat' })).toBe('The capacitor is already at the final voltage, so nothing changes.')
-    expect(note({ kind: 'instant' })).toBe('Only wire is in the capacitor\'s path, so the capacitor fills or empties at once.')
-    expect(note({ cutOff: true })).toBe('The battery is cut off, so the capacitor is emptying through the resistors.')
+    expect(note({ kind: 'instant' })).toBe('Only wire is in the capacitor\'s path, so the capacitor charges or discharges instantly.')
+    expect(note({ cutOff: true })).toBe('The battery is cut off, so the capacitor is discharging through the resistors.')
     expect(note({ locked: true })).toBe('Paused at <i>t</i> = 0 until you predict.')
     expect(note({})).toBe('')
     for (const kind of ['live', 'flat', 'instant', 'none'] as const) expect(note({ kind, settled: true })).not.toMatch(/—/)
@@ -99,7 +99,7 @@ describe('time module: the Play button on a curve with nothing to play', () => {
 describe('the new-curve note (audit #116)', () => {
   const base = { kind: 'live' as const, locked: false, loop: true, hold: 0, settled: false, cutOff: false }
   it('says why t went back to 0 after a mid-curve change, and gives the starting V_C', () => {
-    expect(noteFor({ ...base, restart: 7.0812 })).toBe('The circuit changed, so the clock starts over from <i>V</i><sub>C</sub> = 7.08 V.')
+    expect(noteFor({ ...base, restart: 7.0812 })).toBe('The circuit changed, so the clock restarts from <i>V</i><sub>C</sub> = 7.08 V.')
   })
   it('stays quiet without a restart, and a prediction lock wins', () => {
     expect(noteFor({ ...base, restart: null })).toBe('')

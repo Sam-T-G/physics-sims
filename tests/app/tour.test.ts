@@ -416,11 +416,11 @@ function arithmetic(html: string): Line[] {
   for (const m of t.matchAll(new RegExp(`\\((${NUM}) ?(m?)[AVWΩCsF]\\)\\((${NUM}) ?(m?)[AVWΩCsF]\\) = (${NUM}) ?(m?)[AVWΩCs]`, 'g')))
     out.push({ text: m[0], printed: si(m[5]!, m[6]), val: si(m[1]!, m[2]) * si(m[3]!, m[4]), half: halfUlp(m[5]!, m[6]) })
   // (1/a + 1/b)⁻¹ = c, where a may be a sum like (2 Ω + 0.5 Ω)
-  for (const m of t.matchAll(new RegExp(`\\(1/(\\([^()]*\\)|${NUM} ?Ω) \\+ 1/(${NUM}) ?Ω\\)⁻¹ = (${NUM}) ?Ω`, 'g')))
+  for (const m of t.matchAll(new RegExp(`\\(1/(\\([^()]*\\)|${NUM} ?Ω) \\+ 1/\\(?(${NUM}) ?Ω\\)?\\)⁻¹ = (${NUM}) ?Ω`, 'g')))
     out.push({ text: m[0], printed: num(m[3]!), val: 1 / (1 / sumOf(m[1]!) + 1 / num(m[2]!)), half: halfUlp(m[3]!) })
   // 1/R_P = 1/a Ω + 1/b Ω … so R_P = c Ω
-  for (const m of t.matchAll(new RegExp(`1/RP = ((?:1/${NUM} Ω(?: \\+ )?)+).*?so RP = (${NUM}) Ω`, 'g')))
-    out.push({ text: m[0], printed: num(m[2]!), val: 1 / [...m[1]!.matchAll(new RegExp(`1/(${NUM})`, 'g'))].reduce((a, x) => a + 1 / num(x[1]!), 0), half: halfUlp(m[2]!) })
+  for (const m of t.matchAll(new RegExp(`1/RP = ((?:1/\\(?${NUM} Ω\\)?(?: \\+ )?)+).*?so RP = (${NUM}) Ω`, 'g')))
+    out.push({ text: m[0], printed: num(m[2]!), val: 1 / [...m[1]!.matchAll(new RegExp(`1/\\(?(${NUM})`, 'g'))].reduce((a, x) => a + 1 / num(x[1]!), 0), half: halfUlp(m[2]!) })
   return out
 }
 
@@ -456,6 +456,10 @@ describe('guided tour: printed arithmetic', () => {
     expect(arithmetic('(2.67 A)(4 Ω) = 10.7 V')).toHaveLength(1)
     expect(arithmetic('(1/2 Ω + 1/6 Ω)<sup>−1</sup> = 1.50 Ω')[0]!.val).toBeCloseTo(1.5, 9)
     expect(arithmetic('1/<i>R</i><sub>P</sub> = 1/6 Ω + 1/6 Ω (Eq 10.3, p. 417), so <i>R</i><sub>P</sub> = 3.00 Ω')[0]!.val).toBeCloseTo(3, 9)
+    // the cards write each term as 1/(6 Ω)
+    expect(arithmetic('1/<i>R</i><sub>P</sub> = 1/(6 Ω) + 1/(6 Ω), so <i>R</i><sub>P</sub> = 3.00 Ω')[0]!.val).toBeCloseTo(3, 9)
+    expect(arithmetic('(1/(2 Ω) + 1/(6 Ω))<sup>−1</sup> = 1.50 Ω')[0]!.val).toBeCloseTo(1.5, 9)
+    expect(arithmetic('(1/(2 Ω + 0.5 Ω) + 1/(6 Ω))<sup>−1</sup> = 1.76 Ω')[0]!.val).toBeCloseTo(1 / (1 / 2.5 + 1 / 6), 9)
   })
 
   it('every worked line in every body and reveal is right, walked in order', () => {
@@ -468,14 +472,14 @@ describe('guided tour: printed arithmetic', () => {
     walk(m => { m.r = 0.5; m.emf = 9; anchor(m); if (Number.isFinite(m.clock.tau) && m.clock.tau > 0) { m.t = 6 * m.clock.tau; m.capV = m.clock.Voc } }, check)
   })
 
-  it('the fill stopped at 5τ (no snap): 22 still says 1.50 A, from the circuit, and 19 says none, or very close', () => {
+  it('the fill stopped at 5τ (no snap): 22 still says 1.50 A, from the circuit, and 19 says none, or very nearly none', () => {
     let fillSeen = false
     walk(() => {}, (st, html) => {
       check(st, html)
       if (st.id === 'cap-branch' && /Yes/.test(html)) { expect(html).toContain('1.50 A'); expect(html).not.toMatch(/1\.5[1-9] A/) }
-      if (st.id === 'cap-fill' && html.includes('None, or very close')) fillSeen = true
+      if (st.id === 'cap-fill' && html.includes('None, or very nearly none')) fillSeen = true
     }, fillTo5tau)
-    expect(fillSeen, 'the cap-fill reveal says none, or very close').toBe(true)
+    expect(fillSeen, 'the cap-fill reveal says none, or very nearly none').toBe(true)
     // and that is true: at 5τ the capacitor is within 1% of ε
     { const m = fresh(); setup(m, STEPS.find(x => x.id === 'cap-fill')!.setup!); fillTo5tau(m); const v = view(m); expect(v.b.cap!.Vc / v.emf, 'cap-fill V_C at 5τ').toBeGreaterThan(0.99) }
   })
@@ -484,7 +488,7 @@ describe('guided tour: printed arithmetic', () => {
     let seen = ''
     walk(() => {}, (st, html) => { if (st.id === 'parallel-remove' && html.includes('only branch')) seen = html })
     expect(seen).toContain('from 0.857 A to 1.50 A')
-    expect(seen).toContain('With one branch fewer, the branches resist more, so the branches get a bigger share of the battery\'s 12.0 V.')
+    expect(seen).toContain('With one branch fewer, the branches together resist more and take a larger share of the battery\'s 12.0 V.')
     expect(seen).toContain('The voltage across R₂ rose from 5.14 V to 9.00 V, so R₂\'s current rose too.')
   })
 

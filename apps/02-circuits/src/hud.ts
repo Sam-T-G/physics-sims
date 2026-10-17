@@ -99,9 +99,9 @@ export function specsFor(b: BoardResult, slots: Slots, focus: SlotId | null): { 
       // "Voltage V_terminal" (not "Terminal voltage V_terminal", three lines on a 360 px phone): the symbol and the note
       // say it is the terminal voltage, not ε
       { kind: 'I', name: 'Current', sym: 'I', value: b.idealShort ? NaN : b.I, unit: 'A', note: 'from the battery', keys: ['I'] },
-      { kind: 'V', name: 'Voltage', sym: 'V_terminal', value: b.idealShort ? NaN : b.Vt, unit: 'V', note: "across the battery's ends", keys: ['V'], label: "Terminal voltage, across the battery's ends" },
+      { kind: 'V', name: 'Voltage', sym: 'V_terminal', value: b.idealShort ? NaN : b.Vt, unit: 'V', note: 'across the terminals', keys: ['V'], label: "Terminal voltage, across the battery's terminals" },
       { kind: 'R', name: 'Resistance', sym: 'R_eq', value: b.Req, unit: 'Ω', note: 'not counting r', keys: ['R'], label: 'Total resistance of the parts, not counting r' },
-      { kind: 'P', name: 'Power', sym: 'P', value: b.idealShort ? NaN : b.Pemf, unit: 'W', note: 'made by the battery', keys: ['P'], label: 'Power made by the battery, Iε' },
+      { kind: 'P', name: 'Power', sym: 'P', value: b.idealShort ? NaN : b.Pemf, unit: 'W', note: 'produced by the battery', keys: ['P'], label: 'Power produced by the battery, Iε' },
     ],
   }
 }
@@ -113,9 +113,9 @@ export function capStatus(b: BoardResult): string {
   if (b.status === 'open' && k.Ic !== 0) return 'battery cut off'
   if (b.status === 'short') return 'short circuit'
   const tiny = 1e-9 * Math.max(1, Math.abs(k.Voc), Math.abs(k.Vc))
-  if (Math.abs(k.Ic) > 1e-12 && Math.abs(k.Voc - k.Vc) > tiny) return Math.abs(k.Voc) > Math.abs(k.Vc) ? 'charging' : 'emptying'
+  if (Math.abs(k.Ic) > 1e-12 && Math.abs(k.Voc - k.Vc) > tiny) return Math.abs(k.Voc) > Math.abs(k.Vc) ? 'charging' : 'discharging'
   if (b.status === 'open' && !Number.isFinite(k.tau)) return 'open circuit'
-  return Math.abs(k.Vc) > tiny ? 'full' : 'empty'
+  return Math.abs(k.Vc) > tiny ? 'charged' : 'uncharged'
 }
 
 const symHtml = (s: string) => {
@@ -241,7 +241,7 @@ export function createHud(reduce: () => boolean): Hud {
         const { prefix, scale } = unitPrefix(s.value, s.unit, t.lastMilli)
         t.lastMilli = prefix === 'm'
         t.unit.textContent = ` ${prefix}${s.unit}`
-        const fmt = (x: number) => (Number.isNaN(x) ? 'no number' : s.exact ? exact(x) : sig3(x * scale))
+        const fmt = (x: number) => (Number.isNaN(x) ? 'undefined' : s.exact ? exact(x) : sig3(x * scale))
         // the prediction: "?" over a covered value, a ring and "before the change" on the asked one
         const m = mask.get(s.keys, 'hud')
         const wasHidden = t.masked === 'hide'

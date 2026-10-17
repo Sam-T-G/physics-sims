@@ -107,21 +107,21 @@ describe('HUD with a capacitor on the board', () => {
     expect(s.tiles[0]).toMatchObject({ name: 'Current', sym: 'I_C', note: 'into the capacitor', label: 'Capacitor current' })
   })
   it('says what the capacitor is doing', () => {
-    expect(capStatus(solveBoard({ emf: 12, r: 0, slots, capV: 9 }))).toBe('full')
-    expect(capStatus(solveBoard({ emf: 12, r: 0, slots, capV: 11 }))).toBe('emptying')
+    expect(capStatus(solveBoard({ emf: 12, r: 0, slots, capV: 9 }))).toBe('charged')
+    expect(capStatus(solveBoard({ emf: 12, r: 0, slots, capV: 11 }))).toBe('discharging')
     expect(capStatus(solveBoard({ emf: 12, r: 0, slots, capV: 9, batteryIn: false }))).toBe('battery out')
     expect(capStatus(solveBoard({ emf: 12, r: 0, slots: { R2: R(6), R3: CAP(), R5: W }, capV: 9 }))).toBe('battery cut off')
-    expect(capStatus(solveBoard({ emf: 12, r: 0, slots: { R2: R(6), R3: CAP(), R5: W }, capV: 0 }))).toBe('empty')
+    expect(capStatus(solveBoard({ emf: 12, r: 0, slots: { R2: R(6), R3: CAP(), R5: W }, capV: 0 }))).toBe('uncharged')
   })
   it('keeps the whole-circuit tiles honest about r and Iε', () => {
     const plain: Slots = { R1: R(10), R2: W, R5: W }
     const s = specsFor(solveBoard({ emf: 12, r: 0.1, slots: plain }), plain, null)
     expect(s.title).toBe('Whole circuit')
     expect(s.tiles[2]!.note).toBe('not counting r')
-    expect(s.tiles[3]!.note).toBe('made by the battery')
+    expect(s.tiles[3]!.note).toBe('produced by the battery')
     expect(s.tiles[3]!.label).toContain('Iε')
     // the voltage tile is the terminal voltage, not ε (audit #44)
-    expect(s.tiles[1]).toMatchObject({ name: 'Voltage', sym: 'V_terminal', label: "Terminal voltage, across the battery's ends" })
+    expect(s.tiles[1]).toMatchObject({ name: 'Voltage', sym: 'V_terminal', label: "Terminal voltage, across the battery's terminals" })
   })
   it('an ideal short shows no value for the current, voltage and power (audit #114)', () => {
     const wires: Slots = { R1: W, R2: W, R5: W }

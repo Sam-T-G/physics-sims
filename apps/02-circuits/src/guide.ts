@@ -288,7 +288,7 @@ export function createGuide(api: GuideApi, reduce: () => boolean): Guide {
     const st = step()
     const s = api.state()
     // "Part", not "Chapter": the book citations on the card are the book's chapters
-    chapterEl.textContent = idx === STEPS.length - 1 ? 'Wrap-up' : `Part ${st.chapter + 1}: ${CHAPTERS[st.chapter]}`
+    chapterEl.textContent = idx === STEPS.length - 1 ? 'Summary' : `Part ${st.chapter + 1}: ${CHAPTERS[st.chapter]}`
     count.textContent = `Step ${idx + 1} of ${STEPS.length}`
     mapBtns.forEach((b, k) => {
       b.classList.toggle('is-here', k === st.chapter)

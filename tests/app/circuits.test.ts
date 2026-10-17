@@ -339,7 +339,7 @@ describe('capacitor with no loop, or shorted (audit #5)', () => {
       expect(b.cap!.Vc).toBe(4)
       expect(b.cap!.Voc).toBe(4)
       expect(b.cap!.Ic).toBe(0)
-      expect(statusFor(b, slots, 0, false).html).toContain('no loop to fill or empty through')
+      expect(statusFor(b, slots, 0, false).html).toContain('no loop to charge or discharge through')
     }
   })
   it('an ideal short through a wire branch shorts the capacitor beside it: R = 0, τ = 0', () => {
@@ -367,7 +367,7 @@ describe('status line words (audit #79, #89, #90, #138)', () => {
   it('a discharge with the battery out names the resistors in the loop', () => {
     const s = { R1: res(4), R2: res(2), R5: { kind: 'capacitor' as const, farads: 0.5 } }
     const b = solveBoard({ emf: 12, r: 0, capV: 12, batteryIn: false, slots: s })
-    expect(statusFor(b, s, 0, false)).toEqual({ html: 'Battery out: the capacitor empties through R₁ and R₂.', warn: false })
+    expect(statusFor(b, s, 0, false)).toEqual({ html: 'Battery out: the capacitor discharges through R₁ and R₂.', warn: false })
   })
 })
 

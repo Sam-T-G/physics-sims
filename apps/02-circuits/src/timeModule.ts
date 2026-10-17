@@ -93,15 +93,15 @@ export type NoteState = { kind: CurveKind; locked: boolean; loop: boolean; hold:
 export const RESTART_NOTE_MS = 2000
 /** The note under the time. */
 export function noteFor(s: NoteState): string {
-  const fiveTau = 'After 5τ, the capacitor is more than 99% of the way there.'
+  const fiveTau = 'After 5τ, more than 99% of the change is complete.'
   if (s.locked && (s.kind === 'live' || s.kind === 'flat')) return 'Paused at <i>t</i> = 0 until you predict.'
-  if (s.kind === 'instant') return 'Only wire is in the capacitor\'s path, so the capacitor fills or empties at once.'
-  if (s.kind === 'none') return 'No loop goes through the capacitor, so the capacitor\'s voltage stays the same.'
+  if (s.kind === 'instant') return 'Only wire is in the capacitor\'s path, so the capacitor charges or discharges instantly.'
+  if (s.kind === 'none') return 'No loop passes through the capacitor, so the capacitor\'s voltage stays the same.'
   if (s.kind === 'flat') return 'The capacitor is already at the final voltage, so nothing changes.'
-  if (s.restart != null) return `The circuit changed, so the clock starts over from <i>V</i><sub>C</sub> = ${sig3(s.restart)} V.`
-  if (s.loop && s.hold > 0) return `${fiveTau} Starting over at <i>t</i> = 0.`
+  if (s.restart != null) return `The circuit changed, so the clock restarts from <i>V</i><sub>C</sub> = ${sig3(s.restart)} V.`
+  if (s.loop && s.hold > 0) return `${fiveTau} Replaying from <i>t</i> = 0.`
   if (s.settled) return fiveTau
-  if (s.cutOff) return 'The battery is cut off, so the capacitor is emptying through the resistors.'
+  if (s.cutOff) return 'The battery is cut off, so the capacitor is discharging through the resistors.'
   return ''
 }
 /** The Play button's word: a curve with nothing to play (flat, instant, no path) shows a disabled Play, never Pause. */
@@ -133,7 +133,7 @@ export function createTimeModule(handlers: TimeHandlers, reduce: () => boolean =
       <h2>The capacitor over time</h2>
     </header>
     <div class="sim02-time-empty">
-      <p>Put the capacitor on the board to see the capacitor's current and voltage over time.</p>
+      <p>Place the capacitor on the board to plot the capacitor's current and voltage over time.</p>
     </div>
     <div class="sim02-time-live" hidden>
       <div class="sim02-seg" role="group" aria-label="Battery switch">
@@ -493,9 +493,9 @@ export function createTimeModule(handlers: TimeHandlers, reduce: () => boolean =
       figV.classList.toggle('is-fog', !!mask.fog || coverV)
       if (kind !== 'instant') {
         plot(svgI, T, Iof, c.trace.map(p => [p.t, p.I]), tShow, cap.Ic,
-          live && Math.abs(c.I0) > 0 ? [{ y: 0.368 * c.I0, label: '37% left at τ' }] : [], [c.I0, 0], tau, 'A', mask.fog, coverI, !live)
+          live && Math.abs(c.I0) > 0 ? [{ y: 0.368 * c.I0, label: '37% of I₀ at τ' }] : [], [c.I0, 0], tau, 'A', mask.fog, coverI, !live)
         plot(svgV, T, Vof, c.trace.map(p => [p.t, p.V]), tShow, cap.Vc,
-          live ? [{ y: c.V0 + 0.632 * (c.Voc - c.V0), label: '63% of the way at τ' }] : [], [c.V0, c.Voc], tau, 'V', mask.fog, coverV, !live)
+          live ? [{ y: c.V0 + 0.632 * (c.Voc - c.V0), label: '63% of the change at τ' }] : [], [c.V0, c.Voc], tau, 'V', mask.fog, coverV, !live)
       }
       paintNow(nowI, coverI, reading(cap.Ic, 'A'), 'Current into the capacitor')
       paintNow(nowV, coverV, reading(cap.Vc, 'V'), 'Voltage across the capacitor')
