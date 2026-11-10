@@ -8,7 +8,7 @@ const dist = process.argv[2] ? pathToFileURL(resolve(process.argv[2]) + '/') : n
 if (!existsSync(dist)) { console.error('dist/ missing; run pnpm build first'); process.exit(1) }
 
 // Exam per section, from the course syllabus (syllabus.md in Physics-4B).
-const EXAM = { electrostatics: 'Exam 1', electrodynamics: 'Exam 2', 'magnetism and induction': 'Exam 3', 'ac circuits and electromagnetic waves': 'Exam 4' }
+const EXAM = { electrostatics: 'Exam 1', electrodynamics: 'Exam 2', 'ac circuits and electromagnetic waves': 'Exam 4' }
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 const apps = readdirSync(dist, { withFileTypes: true }).filter(d => d.isDirectory() && d.name !== 'fonts').map(d => d.name).sort()

@@ -10,6 +10,7 @@ Live: https://sam-t-g.github.io/physics-sims/
 |---|---|---|
 | `01-electrostatics` | Charge → Coulomb → field → why r² → flux → Gauss → symmetry | complete: eight chapters, every scene live, checkpoints, linked equations, approximation panel |
 | `02-circuits` | Charge and current, Ohm's law and power, the real battery, series and parallel, Kirchhoff's rules, RC charging and discharging, all on one 3D board of plug-in resistors, wires and a capacitor | live at `/02-circuits/`: a 29-step guided tour in eight chapters (predict, try it, reveal), drag-to-snap parts, HUD readouts, KaTeX equations checked against a full nodal solve, a capacitor timeline with I(t) and V_C(t) plots, OpenStax Examples 10.1, 10.3, 10.4 as presets |
+| `03-magnetism` | Field of a long straight wire, adding fields as vectors, the force between parallel currents and Ampère's law, on one board of wires seen end on | built, not deployed: drag wires, a probe and an Ampère loop; exact field lines; HUD readouts; KaTeX equations, each ✓ against a second calculation; OpenStax Examples 12.3 and 12.4 as presets |
 
 ## Run
 
@@ -18,6 +19,7 @@ pnpm install
 pnpm test        # physics tests, no DOM
 pnpm dev         # 01-electrostatics at http://localhost:5173
 pnpm dev:02      # 02-circuits
+pnpm dev:03      # 03-magnetism
 pnpm build       # dist/<app>/, each with meta.json and THIRD-PARTY-NOTICES.txt
 node scripts/write-index.mjs   # dist/index.html, the site index
 ```
